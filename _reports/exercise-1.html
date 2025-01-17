@@ -16,7 +16,7 @@ date: 2025-01-16
 </p>
 <ul>
   <li>The Duckiebot's wheels are not perfectly aligned.</li>
-  <li>The rubber tire on the wheels are malformed.</li>
+  <li>The rubber tire on the wheels are deformed.</li>
   <li>The mat is uneven.</li>
   <li>etc</li>
 </ul>
@@ -24,7 +24,7 @@ date: 2025-01-16
 <h2>Lane Following Demo</h2>
 <iframe width="560" height="315" src="https://www.youtube.com/embed/5pTgiVmlDpU?si=q78yc7wk1YFfdcwB" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 <p>
-  The video above shows the Duckiebot driving straight in a 2-meter straight line. This video was recorded after calibrating the camera.
+  The video above shows the Duckiebot driving straight in a 2-meter straight line. This video was recorded after calibrating both the wheels and the camera.
   The Duckiebot sometimes follows the lane, and sometimes it follows the center line. The Duckiebot deviates from the lane and also makes adjustments when it encounters a turn in the track.
   The TAs explained some potential causes:
 </p>
@@ -59,4 +59,34 @@ date: 2025-01-16
 <img src="/images/hello_world.png" alt="Duckiebot running a hello world program from a Docker image">
 <p>
   The Duckiebot running a hello world program from a Docker image.
+</p>
+
+<h1>Write Up</h1>
+<h2>Hello World</h2>
+<p>
+  In this lab exercise, I implemented a <a href="https://github.com/BlitzWrecker/W25-CMPUT-412/blob/master/Exercise_1/packages/hello_world/hello_world.py">Hello World program</a>. When executed on a Duckiebot, the program simply prints "Hello from &lt;ROBOT_NAME&gt;!"
+  I also learned how to build a Docker image that runs the Hello World program on my Duckiebot. By using Docker, I can build images for arbitrary programs and run them on the Duckiebots without having to know about the details of the Duckiebots', say, OS, firmware, hardware interfaces, etc.
+</p>
+
+<h2>Calibration</h2>
+<p>
+  I faced a lot of challenges when calibrating my Duckiebot's camera and wheels.
+</p>
+
+<h3>Camera</h3>
+<p>
+  Camera calibration is very important because it determines the value of the parameters that maps the 3D world to the 2D video frames captured by the camera. We did two types of camera calibrations: intrinsic calibration and extrinsic calibration.
+  When calibrating the camera, we used a GUI tools that displays what the Duckiebot's camera is capturing. The data was transmitted over Wi-Fi, and network delays makes the calibration process very inefficient and frustrating.
+  During intrinsic calibration especially, we often had to wait quite some time after moving the calibration board for the GUI application to update the camera output of the Duckiebot.
+</p>
+
+<h3>Wheels</h3>
+<p>
+  Different level of wears on the motor, deformed rubber tires, and numerous other factors can cause the Duckiebot to not drive in a straight line.
+  Therefore, wheel/motor calibration is also important because it accounts for all these factors by setting the trim.
+</p>
+
+<h2>Lane following demo</h2>
+<p>
+  During the lane following demo, my Duckiebot had a lot of trouble following the lane during turns.
 </p>
