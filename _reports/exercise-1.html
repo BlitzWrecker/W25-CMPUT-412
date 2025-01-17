@@ -89,4 +89,22 @@ date: 2025-01-16
 <h2>Lane following demo</h2>
 <p>
   During the lane following demo, my Duckiebot had a lot of trouble following the lane during turns.
+  I speculate that Duckiebot is using the lane indicators (the white and yellow tapes) to follow the lanes during the demo.
+  At the turns, the lane indicators bends. Because of the field of view of the camera, the camera may fail to capture this change.
+  Additionally, the irregular reflection of the carpet may also interfere with how the Duckiebot "interpret" the lane.
 </p>
+<p>
+  When following the straight portion of the lane, the Duckiebot occasionally deviates from the lane a little but continues driving in a straight line. This might be because the mat is uneven.
+  I think that the Duckiebot can use a gyroscope to detect this drift (if the Duckiebot is equipped with one). Or, the Duckiebot can use the lane indicators to detect this drift.
+  The Duckiebot can then adjust its motors appropriately to adjust for this drift.
+</p>
+<p>
+  If image processing and motor decisions are done on our laptop and then send back to the Duckiebot (as we were sending signals from our laptop to the Duckiebot to start and stop lane follow), then network delays will also affect how the Duckiebot drives.
+</p>
+
+<h2>Conclusion</h2>
+<p>
+  All in all, this lab was fun. Although calibrating the hardware can mitigate some of the negative effects that inherent hardware defects may bring to the operations of the Duckiebots, calibration will not help deal with the factors in the environment that are external to the Duckiebots.
+  Despite the occasional frustrations, I have learned to be patient with the Duckiebots.
+</p>
+
