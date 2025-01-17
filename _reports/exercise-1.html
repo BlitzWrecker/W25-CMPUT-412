@@ -10,21 +10,53 @@ date: 2025-01-16
 
 <h2>Straight Line Demo</h2>
 <iframe src="https://youtube.com/embed/AvUAT5J6rS4?si=4vfmCBxzyagFSciH" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+<p>
+  The video above shows the Duckiebot driving straight in a 2-meter straight line. This video was recorded after calibrating the wheels.
+  Even after calibration, we can still see the Duckiebot deviating from the straight line. This can be due to multiple reasons:
+</p>
+<ul>
+  <li>The Duckiebot's wheels are not perfectly aligned.</li>
+  <li>The rubber tire on the wheels are malformed.</li>
+  <li>The mat is uneven.</li>
+  <li>etc</li>
+</ul>
 
 <h2>Lane Following Demo</h2>
 <iframe width="560" height="315" src="https://www.youtube.com/embed/5pTgiVmlDpU?si=q78yc7wk1YFfdcwB" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+<p>
+  The video above shows the Duckiebot driving straight in a 2-meter straight line. This video was recorded after calibrating the camera.
+  The Duckiebot sometimes follows the lane, and sometimes it follows the center line. The Duckiebot deviates from the lane and also makes adjustments when it encounters a turn in the track.
+  The TAs explained some potential causes:
+</p>
+<ul>
+  <li>Network delays. </li>
+  <li>The lane indicators (the white and yellow tapes) start bending on turns. </li>
+  <li>The carpet may also affect how the Duckiebot "interpret" the lane. </li>
+</ul>
 
 <br>
 <h1>Duckiebot Operations</h1>
 
 <h2>Dashboard</h2>
 <img src="/images/dashboard.png" alt="Image of the Duckietown dashboard">
+<p>
+  The Mission Control tab on the dashboard displays the camera output and motor signals. This screenshot is taken when the Duckiebot is stationary.
+</p>
 
 <h2>Camera Intrinsic Calibration</h2>
 <img src="/images/camera_intrinsics.png" alt="Camera intrinsic calibration file">
+<p>
+  The camera intrinsic calibration file. Intrinsic calibration parameters are used to map the 3D world to the 2D image.
+</p>
 
 <h2>Camera Extrinsic Calibration</h2>
 <img src="/images/camera_extrinsics.png" alt="Camera extrinsic calibration file">
+<p>
+  The camera extrinsic calibration file. Extrinsic calibration parameters are used to determine the position of the camera in the world.
+</p>
 
 <h2>Duckiebot Greeting</h2>
 <img src="/images/hello_world.png" alt="Duckiebot running a hello world program from a Docker image">
+<p>
+  The Duckiebot running a hello world program from a Docker image.
+</p>
