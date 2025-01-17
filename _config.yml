@@ -212,7 +212,7 @@ kramdown:
 
 # These settings control the types of collections used by the template
 collections:
-  publications:
+  reports:
     output: true
     permalink: /:collection/:path/
   portfolio:
@@ -249,14 +249,14 @@ defaults:
       author_profile: true
       share: true
       comments: true
-  # _publications
+  # _reports
   - scope:
       path: ""
-      type: publications
+      type: reports
     values:
       layout: single
       author_profile: true
-      share: true
+      share: false
       comments: true
   # _portfolio
   - scope:

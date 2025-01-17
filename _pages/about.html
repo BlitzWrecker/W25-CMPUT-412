@@ -1,0 +1,27 @@
+---
+permalink: /
+title: "Home"
+author_profile: true
+redirect_from: 
+  - /about/
+  - /about.html
+---
+
+<p>
+  This website hosts written reports for CMPUT 412 - Experimental Mobile Robotics offered at the University of Alberta in Winter 2025.
+</p>
+
+<h1>Code Repository</h1>
+<p>
+  The code for each lab exercise is hosted on <a href="https://github.com/BlitzWrecker/W25-CMPUT-412">GitHub</a>
+</p>
+
+<h1>Navigation</h1>
+<p>
+  All the written reports can be found in the <a href="/reports/">Reports</a> page. All reports are also listed below (most recent first) for ease of access. The <a href="/Gallery/">Gallery</a> page contains all images and videos used in the reports.
+</p>
+
+<h1>Reports</h1>
+{% for report in site.reports reversed %}
+  <a href="{{ report.permalink }}" rel="permalink">{{ report.title }}</a>
+{% endfor %}
