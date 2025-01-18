@@ -20,10 +20,10 @@ redirect_from:
 
 <h1>Navigation</h1>
 <p>
-All the written reports can be found in the <a href="{{ base_path }}/reports/">Reports</a> page. All reports are also listed below (most recent first) for ease of access.
+  All the written reports can be found in the <a href="{{ base_path }}/reports/">Reports</a> page. All reports are also listed below (most recent first) for ease of access.
 </p>
 
 <h1>Reports</h1>
 {% for report in site.reports reversed %}
-  <a href="{{ report.permalink }}" rel="permalink">{{ report.title }}</a>
+  <a href="{{ base_path }}{{ report.permalink }}" rel="permalink">{{ report.title }}</a>
 {% endfor %}
