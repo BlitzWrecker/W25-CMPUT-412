@@ -6,6 +6,8 @@ excerpt: 'Written report for lab exercise 1'
 date: 2025-01-16
 ---
 
+{% include base_path %}
+
 <h1>Demos</h1>
 
 <h2>Straight Line Demo</h2>
@@ -38,25 +40,25 @@ date: 2025-01-16
 <h1>Duckiebot Operations</h1>
 
 <h2>Dashboard</h2>
-<img src="/images/dashboard.png" alt="Image of the Duckietown dashboard">
+<img src="{{ base_path }}/images/dashboard.png" alt="Image of the Duckietown dashboard">
 <p>
   The Mission Control tab on the dashboard displays the camera output and motor signals. This screenshot is taken when the Duckiebot is stationary.
 </p>
 
 <h2>Camera Intrinsic Calibration</h2>
-<img src="/images/camera_intrinsics.png" alt="Camera intrinsic calibration file">
+<img src="{{ base_path }}/images/camera_intrinsics.png" alt="Camera intrinsic calibration file">
 <p>
   The camera intrinsic calibration file. Intrinsic calibration parameters are used to map the 3D world to the 2D image.
 </p>
 
 <h2>Camera Extrinsic Calibration</h2>
-<img src="/images/camera_extrinsics.png" alt="Camera extrinsic calibration file">
+<img src="{{ base_path }}/images/camera_extrinsics.png" alt="Camera extrinsic calibration file">
 <p>
   The camera extrinsic calibration file. Extrinsic calibration parameters are used to determine the position of the camera in the world.
 </p>
 
 <h2>Duckiebot Greeting</h2>
-<img src="/images/hello_world.png" alt="Duckiebot running a hello world program from a Docker image">
+<img src="{{ base_path }}/images/hello_world.png" alt="Duckiebot running a hello world program from a Docker image">
 <p>
   The Duckiebot running a hello world program from a Docker image.
 </p>
