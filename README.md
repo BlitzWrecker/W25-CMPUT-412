@@ -1,3 +1,6 @@
+# CMPUT 412 Course Website
+This branch contains the code and assets that host the course website for CMPUT 412. I used the [academicpages/academicpages.github.io](academicpages/academicpages.github.io) template for my website, and continue to remove code and files that were in the template originally but not needed for this course website. 
+
 # Academic Pages
 **Academic Pages is a Github Pages template for academic websites.**
 
