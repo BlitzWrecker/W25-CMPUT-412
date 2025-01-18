@@ -7,21 +7,3 @@
 main:
   - title: "Reports"
     url: /reports/
-
-  - title: "Gallery"
-    url: /gallery/
-
-#  - title: "Teaching"
-#    url: /teaching/
-#
-#  - title: "Portfolio"
-#    url: /portfolio/
-#
-#  - title: "Blog Posts"
-#    url: /year-archive/
-#
-#  - title: "CV"
-#    url: /cv/
-#
-#  - title: "Guide"
-#    url: /markdown/
