@@ -1,0 +1,147 @@
+---
+title: "Exercise 2 - ROS Development and Kinematics"
+collection: reports
+permalink: /report/exercise-2
+excerpt: 'Written report for lab exercise 2'
+date: 2025-02-11
+---
+
+{% include base_path %}
+
+<h1>ROS Concepts</h1>
+
+<h2>Node</h2>
+<p>
+  A ROS node is a functional unit that provides some service, operation, or functionality.
+  For example, a node may control a robot's wheel motors or perform some computation with data received from another node.
+  Nodes in ROS are analogous to processes in an operating system. Although each performs a small task,
+  they collectively form an entire software system capable of handling complex tasks.
+</p>
+
+<h2>Topic</h2>
+<p>
+  Topics are unidirectional channels over which nodes communicate. Nodes identify a topic by a string that represents its name.
+  Instead of sending messages directly to each other, nodes <b>publish</b> messages to topics so that nodes that
+  <b>subscribe</b> to the same topics will receive them. Topics decouples the sender from the receiver.
+  This is especially useful when multiple nodes want data from a single node. Instead of having the sender keep track of
+  all the receivers, the sender can just broadcast the message over a topic, and any nodes interested in the data can
+  subscribe to the topic.
+</p>
+
+<h2>Service</h2>
+<p>
+  Services are analogous to remote procedure calls. Unlike topics, communication over services are done in message
+  pairs: one is the request (the function call, with arguments if applicable), and the other is the reply (the function
+  return value). Services are especially useful when multiple nodes need a common operation as part of their bigger
+  computations. Instead of dulicating code across multiple nodes, we can provide that operation as a library function in
+  the form of a ROS service where it is accessible to all nodes that need it.
+</p>
+
+<h2>Message</h2>
+<p>
+  To communicate, nodes must put all the data they wish to share in a message. Messages specify what data it can carry
+  through a series of fields - the data type and the name. The advantage of this structure becomes apparent in the
+  context of services, where a pair of message definitions specify the inputs and outputs of a service (the number of
+  arguments/return values, their positions, and their data type).
+</p>
+
+<h2>Bag</h2>
+<p>
+  A ROS bag is a file that stores ROS message data. Typically,  a bag file is created using <code>rosbag</code>, which subscribes to
+  topics and writes messages to the file as they are received. The recorded messages can then be played back to another
+  arbitrary topic, or used in offline analyses.
+</p>
+
+<h1>Setting Up Communication</h1>
+<h2>0. Planning</h2>
+<p>
+  This is an important step that is easy to overlook. What do we hope to achieve? How many nodes do we need? What kind
+  of messages will the nodes exchange? Are the primitive message types sufficient, or do we need to design new messages?
+  If we need new messages, we should design them first so we can use them when defining our nodes.
+</p>
+
+<h2>1. Identify already-available resources</h2>
+<p>
+  Most of the time we want to interact with the robot. Therefore, the robot may have topics and services we can use in
+  our nodes. We can use <code>rostopic list</code> and <code>rosservice list</code> to identify topics and services from
+  the robot that we can leverage. It is also useful to find out what kind of message the topics and services accept. In
+  the case of services, knowing the type of the return message is also very important.
+</p>
+
+<h2>2. Define the node(s)</h2>
+<p>
+  Implement the logic and functionality of the nodes. Specify the topics they will publish/subscribe to and the services
+  they will use.
+</p>
+
+<h2>3. Deploy & test</h2>
+<p>
+  It is time to deploy the nodes to the robot and watch everything work seamlessly and perfectly! If something does not
+  work, be sure to go back  and check whether you are using the right topics and/or services for the job, whether you
+  are publishing the right messages to them, and, most importantly, whether you are spelling their names correctly :P
+</p>
+
+<h1>Publisher-Subscriber</h1>
+<img src="{{ base_path }}/images/pub-sub.png" alt="Image of a demo publisher-subscriber model in action">
+
+<h1>Annotated Grayscale Image</h1>
+<img src="{{ base_path }}/images/annotated-grayscale.png" alt="An annotated grayscale image">
+<p>
+  This image shows the <code>rqt_image_view</code> windows subscribed to the topic "<code>/csc22928/processed_image</code>".
+  The data received from the topic is a grayscale image annotated with "Duck csc22929 says, 'Cheese! Capturing 640x480 - quack-tastic!'".
+  The original image captured by our Duckiebot is RBG and without annotations. We wrote a ROS node that subscribes to
+  the robot's camera, takes the received image data, converts the image from RGB to grayscale and annotates it using
+  OpenCV, and publishes the processed image to the topic "<code>/csc22928/processed_image</code>". We practiced how to take data from
+  the robot, perform our computations on it, and publish our results on another topic. Additionally, we were also
+  introduced to a well-known computer vision library, OpenCV.
+</p>
+
+<h1>Driving in a Straight Line</h1>
+<iframe src="https://youtube.com/embed/58vgK89H5cQ?si=Et8Wjp-mLUHGBT6z" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+<p>
+  This video shows our Duckiebot driving forward 1.25 meters and then backward 1.25 meters. The goal was to have it
+  drive parallel to the yellow line all the way through, but the Duckiebot deviated slightly to the right. The robot
+  exhibited a constant drift to the right. This may be due to
+</p>
+<ol>
+  <li>uneven wear on the motors,</li>
+  <li>the rubber tires being deformed,</li>
+  <li>the robot was simply not placed perfectly parallel to the yellow line before starting the program, and</li>
+  <li>we did our inverse-kinematics calculations incorrectly.</li>
+</ol>
+<p>
+  We noticed that when the Duckiebot was crossing the second mat connector while driving forward, there was a slight,
+  but sudden, jerk to the right. Another thing that caught our attention was the transition from driving forward to
+  driving backward. We should have had the robot gradually slow down to a stop, rather than coming to a sudden stop and
+  immediately started reversing because the sudden jerk could have thrown the robot off its original track.
+</p>
+
+<h1>90&deg; Turn</h1>
+<iframe src="https://youtube.com/embed/VZFHjZKBg1U?si=DWImesDI7e9KG9lk" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+<p>
+  This video shows the Duckiebot turning 90&deg; clockwise, then 90&deg; counter-clockwise, on the spot. Our approach
+  for rotating on the spot was to turn both wheels in opposite directions, as opposed turning only one wheel and keeping
+  the other stationary. We recognize that turning two wheels at the same time is harder to control than turning one
+  wheel, and is more prone to deviations. Deviations in the rotation can be caused by incorrect kinematics calculations.
+</p>
+
+<h1>Driving in a 'D' Shape</h1>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/6Cv1MuqhHn0?si=GLMjX-shjOpyAbr4" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+<p>
+  This video shows our Duckiebot driving on the D-shaped track. The LEDs on the Duckiebot indicates its state. Red means
+  the robot is at rest; Blue means the robot is driving in a D shape.
+</p>
+
+<h1>References</h1>
+<p>
+  <a href="https://docs.duckietown.com/daffy/opmanual-duckiebot/intro.html" target="_blank">
+    https://docs.duckietown.com/daffy/opmanual-duckiebot/intro.html
+  </a>
+  <br >
+  <a href="https://wiki.ros.org/ROS/Tutorials" target="_blank">
+    https://wiki.ros.org/ROS/Tutorials
+  </a>
+</p>
+<p>
+  Special thanks to Yushu Zhang and Anthony Chen, who were my partners for this exercise.
+</p>
