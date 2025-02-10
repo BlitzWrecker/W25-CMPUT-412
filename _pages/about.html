@@ -26,4 +26,5 @@ redirect_from:
 <h1>Reports</h1>
 {% for report in site.reports reversed %}
   <a href="{{ base_path }}{{ report.permalink }}" rel="permalink">{{ report.title }}</a>
+  <br>
 {% endfor %}
