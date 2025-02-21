@@ -3,6 +3,14 @@
 # potentially useful for question - 1.1 - 1.4 and 2.1
 
 # import required libraries
+import os
+import rospy
+import numpy as np
+from duckietown.dtros import DTROS, NodeType
+from sensor_msgs.msg import CompressedImage, Image
+
+import cv2
+from cv_bridge import CvBridge
 
 class LaneDetectionNode(DTROS):
     def __init__(self, node_name):
@@ -12,7 +20,11 @@ class LaneDetectionNode(DTROS):
         # camera calibration parameters (intrinsic matrix and distortion coefficients)
         
         # color detection parameters in HSV format
-        
+        self.yellow_lower = np.array([20, 100, 100])
+        self.yellow_upper = np.array([30, 255, 255])
+        self.white_lower = np.array([0, 0, 200])
+        self.white_upper = np.array([255, 30, 255])
+
         # initialize bridge and subscribe to camera feed
 
         # lane detection publishers
@@ -22,10 +34,15 @@ class LaneDetectionNode(DTROS):
         # ROI vertices
         
         # define other variables as needed
+        self.rate = rospy.Rate(5)
 
-    def undistort_image(self, **kwargs):
-        # add your code here
-        pass
+    def undistort_image(self, image):
+        h, w = image.shape[:2]
+        new_camera_matrix, self.roi = cv2.getOptimalNewCameraMatrix(
+            self.camera_matrix, self.dist_coeffs, (w, h), 1, (w, h)
+        )
+        undistorted = cv2.undistort(image, self.camera_matrix, self.dist_coeffs, None, new_camera_matrix)
+        return undistorted
 
     def preprocess_image(self, **kwargs):
         # add your code here
@@ -39,9 +56,8 @@ class LaneDetectionNode(DTROS):
         # add your code here
         # potentially useful in question 2.1
         pass
-    
-    
-    def callback(self, **kwargs):
+
+    def callback(self, msg):
         # add your code here
         
         # convert compressed image to CV2
