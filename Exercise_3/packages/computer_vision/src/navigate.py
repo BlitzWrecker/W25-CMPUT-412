@@ -130,14 +130,14 @@ class NavigationControl(DTROS):
         self.reset_encoders()
 
         # Define curve radius (increase for a wider turn)
-        curve_radius = 0.2  # meters (adjust as needed)
+        curve_radius = 0.4  # meters (adjust as needed)
         arc_length = (math.pi / 2) * curve_radius  # Arc length for 90 degrees
 
         # Compute required encoder ticks for the arc length
         ticks_needed = (arc_length / (2 * math.pi * WHEEL_RADIUS)) * TICKS_PER_ROTATION
 
         # Command wheels to move in a curve (right wheel slower)
-        self.publish_velocity(CURVE_SPEED, CURVE_SPEED * 0.3)  # Adjust ratio as needed
+        self.publish_velocity(CURVE_SPEED, CURVE_SPEED * 0.35)  # Adjust ratio as needed
 
         # Wait until the required ticks are reached
         rate = rospy.Rate(100)  # 10 Hz loop
@@ -150,7 +150,7 @@ class NavigationControl(DTROS):
                     rospy.loginfo("90-degree curve to the right complete.")
                     break
 
-            self.publish_velocity(CURVE_SPEED, CURVE_SPEED * 0.3)
+            self.publish_velocity(CURVE_SPEED, CURVE_SPEED * 0.35)
             rate.sleep()
 
         # Stop the robot
@@ -164,7 +164,7 @@ class NavigationControl(DTROS):
         self.reset_encoders()
 
         # Define curve radius (increase for a wider turn)
-        curve_radius = 0.2  # meters (adjust as needed)
+        curve_radius = 0.4  # meters (adjust as needed)
         arc_length = (math.pi / 2) * curve_radius  # Arc length for 90 degrees
 
         # Compute required encoder ticks for the arc length
