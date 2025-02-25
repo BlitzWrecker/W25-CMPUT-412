@@ -7,8 +7,9 @@ import numpy as np
 from duckietown.dtros import DTROS, NodeType
 from sensor_msgs.msg import CompressedImage
 from cv_bridge import CvBridge
+from duckietown_msgs.msg import WheelsCmdStamped, WheelEncoderStamped
 import cv2
-import time
+import math
 
 # Constants
 WHEEL_RADIUS = 0.0318  # meters (Duckiebot wheel radius)
@@ -20,9 +21,6 @@ class BehaviorController(DTROS):
     def __init__(self, node_name):
         super(BehaviorController, self).__init__(node_name=node_name, node_type=NodeType.CONTROL)
         
-        # Initialize navigation control
-        self.navigation = NavigationControl(node_name="navigation_control_node")
-
         # Define parameters
         self._vehicle_name = os.environ["VEHICLE_NAME"]
         self._camera_topic = f"/{self._vehicle_name}/camera_node/image/compressed"
