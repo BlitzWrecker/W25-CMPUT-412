@@ -6,7 +6,7 @@ source /environment.sh
 dt-launchfile-init
 
 # launch subscriber
-rosrun computer_vision lane_based_behavior_controller_template.py
+rosrun computer_vision lane_based_behavior_controller.py
 
 # wait for app to end
 dt-launchfile-join

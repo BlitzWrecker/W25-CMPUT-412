@@ -11,7 +11,7 @@ import cv2
 import time
 
 # Import navigation functions
-from navigation_control import NavigationControl  # Assuming navigation_control.py is in the same directory
+from navigate import NavigationControl  # Assuming navigation.py is in the same directory
 
 class BehaviorController(DTROS):
     def __init__(self, node_name):
