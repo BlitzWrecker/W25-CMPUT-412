@@ -229,6 +229,22 @@ class BehaviorController(DTROS):
         # Stop the robot
         self.stop()
 
+    def callback_left(self, data):
+        """Callback for left encoder ticks."""
+        if self._ticks_left_init is None:
+            self._ticks_left_init = data.data
+            self._ticks_left = 0
+        else:
+            self._ticks_left = data.data - self._ticks_left_init
+
+    def callback_right(self, data):
+        """Callback for right encoder ticks."""
+        if self._ticks_right_init is None:
+            self._ticks_right_init = data.data
+            self._ticks_right = 0
+        else:
+            self._ticks_right = data.data - self._ticks_right_init
+
     def turn_right(self):
         """
         Move the Duckiebot in a curve through 90 degrees to the right.
