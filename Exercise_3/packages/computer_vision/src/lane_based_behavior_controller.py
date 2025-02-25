@@ -97,10 +97,10 @@ class BehaviorController(DTROS):
         rospy.loginfo("Executing blue line behavior")
         
         # Stop for 3-5 seconds
-        self.navigation.stop(duration=4)
+        self.stop(duration=4)
         
         # Move in a curve to the right
-        self.navigation.turn_right()
+        self.turn_right()
 
     def execute_red_line_behavior(self):
         """
@@ -111,10 +111,10 @@ class BehaviorController(DTROS):
         rospy.loginfo("Executing red line behavior")
         
         # Stop for 3-5 seconds
-        self.navigation.stop(duration=4)
+        self.stop(duration=4)
         
         # Move straight for 30 cm
-        self.navigation.move_straight(0.3)
+        self.move_straight(0.3)
 
     def execute_green_line_behavior(self):
         """
@@ -125,10 +125,10 @@ class BehaviorController(DTROS):
         rospy.loginfo("Executing green line behavior")
         
         # Stop for 3-5 seconds
-        self.navigation.stop(duration=4)
+        self.stop(duration=4)
         
         # Move in a curve to the left
-        self.navigation.turn_left()
+        self.turn_left()
 
     def callback(self, msg):
         """
@@ -154,7 +154,7 @@ class BehaviorController(DTROS):
         
         # If no color is detected, keep moving forward
         elif not detected_color:
-            self.navigation.move_straight(0.1)  # Move forward slowly
+            self.move_straight(0.1)  # Move forward slowly
         
         self.rate.sleep()
 
