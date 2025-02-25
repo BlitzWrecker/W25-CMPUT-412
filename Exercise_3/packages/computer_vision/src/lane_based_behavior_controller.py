@@ -5,10 +5,10 @@ import os
 import rospy
 import numpy as np
 from duckietown.dtros import DTROS, NodeType
+import cv2
 from sensor_msgs.msg import CompressedImage
 from cv_bridge import CvBridge
 from duckietown_msgs.msg import WheelsCmdStamped, WheelEncoderStamped
-import cv2
 import math
 
 # Constants
