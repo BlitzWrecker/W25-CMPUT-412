@@ -188,4 +188,16 @@ class NavigationControl(DTROS):
 
 if __name__ == '__main__':
     node = NavigationControl(node_name='navigation_control_node')
+    # Move forward 1 meter
+    node.move_straight(0.1)
+    
+    # Curve 90 degrees to the right
+    node.turn_right()
+
+     # Stop for 3 seconds
+    node.stop(duration=3)
+    
+    # Curve 90 degrees to the left
+    node.turn_left()
+    
     rospy.spin()
