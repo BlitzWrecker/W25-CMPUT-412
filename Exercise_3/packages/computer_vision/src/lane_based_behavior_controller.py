@@ -23,7 +23,7 @@ class BehaviorController(DTROS):
         
         # Define parameters
         self._vehicle_name = os.environ["VEHICLE_NAME"]
-        self._camera_topic = f"/{self._vehicle_name}/camera_node/image/compressed"
+        self._camera_topic = f"/{self._vehicle_name}/camera_node/image/proccessed"
 
         # Get Duckiebot's name
         self._vehicle_name = os.environ["VEHICLE_NAME"]
