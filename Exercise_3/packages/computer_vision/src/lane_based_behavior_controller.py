@@ -9,7 +9,7 @@ from std_msgs.msg import String  # For publishing the lane color
 import math
 from duckietown_msgs.msg import LEDPattern
 from std_msgs.msg import ColorRGBA
-# from computer_vision.srv import LaneBehaviorCMD, LaneBehaviorCMDResponse
+from computer_vision.srv import LaneBehaviorCMD, LaneBehaviorCMDResponse
 
 # Constants
 WHEEL_RADIUS = 0.0318  # meters (Duckiebot wheel radius)
@@ -46,7 +46,7 @@ class BehaviorController(DTROS):
         self.sub_right = rospy.Subscriber(self._right_encoder_topic, WheelEncoderStamped, self.callback_right)
 
         # Subscribers
-        self.color_sub = rospy.Subscriber("detected_color", String, self.callback, queue_size=1)
+        # self.color_sub = rospy.Subscriber("detected_color", String, self.callback, queue_size=1)
 
         # State variables
         self.current_color = None
@@ -55,6 +55,8 @@ class BehaviorController(DTROS):
 
         # Define other variables as needed
         self.rate = rospy.Rate(10)  # 10 Hz
+        self.left_led_id = [0, 3]
+        self.right_led_id = [1, 4]
 
     def execute_blue_line_behavior(self):
         """
@@ -69,14 +71,16 @@ class BehaviorController(DTROS):
         
         pattern = LEDPattern()
         pattern.rgb_vals = [ColorRGBA(r=1, g=0, b=0, a=0.5)] * 5
-        pattern.frequency = 2.0
-        pattern.frequency_mask = [0, 1, 0, 1, 0]
+
+        for i in self.right_led_id:
+            pattern.rgb_vals[i] = ColorRGBA(r=0, g=1, b=0, a=0.5)
+
         self.led_pub.publish(pattern)
 
         # Move in a curve to the right
         self.turn_right()
 
-        pattern.frequency_mask = [0, 0, 0, 0, 0]
+        pattern.rgb_vals = [ColorRGBA(r=1, g=0, b=0, a=0.5)] * 5
         self.led_pub.publish(pattern)
 
     def execute_red_line_behavior(self):
@@ -90,8 +94,8 @@ class BehaviorController(DTROS):
         # Stop for 3-5 seconds
         self.stop(duration=4)
         
-        # Move straight for 30 cm
-        self.move_straight(0.3)
+        # Move straight for 50 cm
+        self.move_straight(0.5)
 
     def execute_green_line_behavior(self):
         """
@@ -106,14 +110,16 @@ class BehaviorController(DTROS):
         
         pattern = LEDPattern()
         pattern.rgb_vals = [ColorRGBA(r=1, g=0, b=0, a=0.5)] * 5
-        pattern.frequency = 2.0
-        pattern.frequency_mask = [1, 0, 0, 0, 1]
+
+        for i in self.left_led_id:
+            pattern.rgb_vals[i] = ColorRGBA(r=0, g=1, b=0, a=0.5)
+
         self.led_pub.publish(pattern)
         
         # Move in a curve to the left
         self.turn_left()
 
-        pattern.frequency_mask = [0, 0, 0, 0, 0]
+        pattern.rgb_vals = [ColorRGBA(r=1, g=0, b=0, a=0.5)] * 5
         self.led_pub.publish(pattern)
 
     def callback(self, msg):
@@ -121,8 +127,8 @@ class BehaviorController(DTROS):
         Callback for processing camera images.
         """
         # Detect line color
-        # detected_color = msg.cmd
-        detected_color = msg
+        detected_color = msg.cmd
+        # detected_color = msg
         
         if detected_color:
             self.current_color = detected_color
@@ -135,13 +141,16 @@ class BehaviorController(DTROS):
                 self.execute_red_line_behavior()
             elif detected_color == "green":
                 self.execute_green_line_behavior()
+            elif detected_color == "shutdown":
+                self.stop()
+                rospy.signal_shutdown("Received shutdown command")
         
             # If no color is detected, keep moving forward
             else:
-                self.move_straight(0.1)  # Move forward slowly
+                self.move_straight(0)  # Move forward slowly
         
         self.rate.sleep()
-        # return LaneBehaviorCMDResponse(True)
+        return LaneBehaviorCMDResponse(True)
 
     def reset_encoders(self):
         """Reset encoder counters to track new movements."""
@@ -189,6 +198,9 @@ class BehaviorController(DTROS):
         # Command wheels to move forward
         self.publish_velocity(CURVE_SPEED, CURVE_SPEED)
 
+        if distance == 0:
+            return
+
         # Wait until the required ticks are reached
         rate = rospy.Rate(100)  # 10 Hz loop
         while not rospy.is_shutdown():
@@ -230,7 +242,7 @@ class BehaviorController(DTROS):
         self.reset_encoders()
 
         # Define curve radius (increase for a wider turn)
-        curve_radius = 0.4  # meters (adjust as needed)
+        curve_radius = 0.3  # meters (adjust as needed)
         arc_length = (math.pi / 2) * curve_radius  # Arc length for 90 degrees
 
         # Compute required encoder ticks for the arc length
@@ -264,7 +276,7 @@ class BehaviorController(DTROS):
         self.reset_encoders()
 
         # Define curve radius (increase for a wider turn)
-        curve_radius = 0.4  # meters (adjust as needed)
+        curve_radius = 0.3  # meters (adjust as needed)
         arc_length = (math.pi / 2) * curve_radius  # Arc length for 90 degrees
 
         # Compute required encoder ticks for the arc length
@@ -292,5 +304,5 @@ class BehaviorController(DTROS):
 
 if __name__ == '__main__':
     node = BehaviorController(node_name='behavior_controller_node')
-    # s = rospy.Service('behavior_service', LaneBehaviorCMD, node.callback)
+    s = rospy.Service('behavior_service', LaneBehaviorCMD, node.callback)
     rospy.spin()
