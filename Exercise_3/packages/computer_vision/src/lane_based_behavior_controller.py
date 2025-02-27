@@ -9,7 +9,7 @@ from std_msgs.msg import String  # For publishing the lane color
 import math
 from duckietown_msgs.msg import LEDPattern
 from std_msgs.msg import ColorRGBA
-from computer_vision.srv import LaneBehaviorCMD, LaneBehaviorCMDResponse
+# from computer_vision.srv import LaneBehaviorCMD, LaneBehaviorCMDResponse
 
 # Constants
 WHEEL_RADIUS = 0.0318  # meters (Duckiebot wheel radius)
@@ -141,7 +141,7 @@ class BehaviorController(DTROS):
                 self.move_straight(0.1)  # Move forward slowly
         
         self.rate.sleep()
-        return LaneBehaviorCMDResponse(True)
+        # return LaneBehaviorCMDResponse(True)
 
     def reset_encoders(self):
         """Reset encoder counters to track new movements."""

@@ -10,7 +10,7 @@ from sensor_msgs.msg import CompressedImage, Image
 from std_msgs.msg import String  # For publishing the lane color
 import cv2
 from cv_bridge import CvBridge
-from computer_vision.srv import LaneBehaviorCMD
+# from computer_vision.srv import LaneBehaviorCMD
 
 
 class LaneDetectionNode(DTROS):
