@@ -3,13 +3,13 @@
 # import required libraries
 import os
 import rospy
-import numpy as np
 from duckietown.dtros import DTROS, NodeType
-import cv2
-from sensor_msgs.msg import CompressedImage
-from cv_bridge import CvBridge
 from duckietown_msgs.msg import WheelsCmdStamped, WheelEncoderStamped
+from std_msgs.msg import String  # For publishing the lane color
 import math
+from duckietown_msgs.msg import LEDPattern
+from std_msgs.msg import ColorRGBA
+from computer_vision.srv import LaneBehaviorCMD, LaneBehaviorCMDResponse
 
 # Constants
 WHEEL_RADIUS = 0.0318  # meters (Duckiebot wheel radius)
@@ -21,16 +21,15 @@ class BehaviorController(DTROS):
     def __init__(self, node_name):
         super(BehaviorController, self).__init__(node_name=node_name, node_type=NodeType.CONTROL)
         
-        # Define parameters
-        self._vehicle_name = os.environ["VEHICLE_NAME"]
-        self._camera_topic = f"/{self._vehicle_name}/camera_node/image/proccessed"
-
         # Get Duckiebot's name
         self._vehicle_name = os.environ["VEHICLE_NAME"]
 
         # Publisher for wheel commands
         self._wheels_topic = f"/{self._vehicle_name}/wheels_driver_node/wheels_cmd"
         self._publisher = rospy.Publisher(self._wheels_topic, WheelsCmdStamped, queue_size=1)
+
+        # LED Publisher
+        self.led_pub = rospy.Publisher(f"{self._vehicle_name}/led_emitter_node/led_pattern", LEDPattern, queue_size=10)
 
         # Encoder topics
         self._left_encoder_topic = f"/{self._vehicle_name}/left_wheel_encoder_node/tick"
@@ -46,20 +45,8 @@ class BehaviorController(DTROS):
         self.sub_left = rospy.Subscriber(self._left_encoder_topic, WheelEncoderStamped, self.callback_left)
         self.sub_right = rospy.Subscriber(self._right_encoder_topic, WheelEncoderStamped, self.callback_right)
 
-
-        # Color ranges in HSV
-        self.lower_blue = np.array([100, 150, 50])
-        self.upper_blue = np.array([140, 255, 255])
-        self.lower_red = np.array([0, 150, 50])
-        self.upper_red = np.array([10, 255, 255])
-        self.lower_green = np.array([35, 50, 50])
-        self.upper_green = np.array([90, 200, 255])
-
-        # Initialize bridge
-        self._bridge = CvBridge()
-
         # Subscribers
-        self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.callback)
+        self.color_sub = rospy.Subscriber("detected_color", String, self.callback, queue_size=1)
 
         # State variables
         self.current_color = None
@@ -68,25 +55,6 @@ class BehaviorController(DTROS):
 
         # Define other variables as needed
         self.rate = rospy.Rate(10)  # 10 Hz
-
-    def detect_line(self, image):
-        """
-        Detect lines (blue, red, green) using HSV thresholds.
-        """
-        hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-        blue_mask = cv2.inRange(hsv_image, self.lower_blue, self.upper_blue)
-        red_mask = cv2.inRange(hsv_image, self.lower_red, self.upper_red)
-        green_mask = cv2.inRange(hsv_image, self.lower_green, self.upper_green)
-        
-        # Check which color is detected
-        if np.sum(blue_mask) > 1000:
-            return "blue"
-        elif np.sum(red_mask) > 1000:
-            return "red"
-        elif np.sum(green_mask) > 1000:
-            return "green"
-        else:
-            return None
 
     def execute_blue_line_behavior(self):
         """
@@ -99,8 +67,17 @@ class BehaviorController(DTROS):
         # Stop for 3-5 seconds
         self.stop(duration=4)
         
+        pattern = LEDPattern()
+        pattern.rgb_vals = [ColorRGBA(r=1, g=0, b=0, a=0.5)] * 5
+        pattern.frequency = 2.0
+        pattern.frequency_mask = [0, 1, 0, 1, 0]
+        self.led_pub.publish(pattern)
+
         # Move in a curve to the right
         self.turn_right()
+
+        pattern.frequency_mask = [0, 0, 0, 0, 0]
+        self.led_pub.publish(pattern)
 
     def execute_red_line_behavior(self):
         """
@@ -127,20 +104,27 @@ class BehaviorController(DTROS):
         # Stop for 3-5 seconds
         self.stop(duration=4)
         
+        pattern = LEDPattern()
+        pattern.rgb_vals = [ColorRGBA(r=1, g=0, b=0, a=0.5)] * 5
+        pattern.frequency = 2.0
+        pattern.frequency_mask = [1, 0, 0, 0, 1]
+        self.led_pub.publish(pattern)
+        
         # Move in a curve to the left
         self.turn_left()
+
+        pattern.frequency_mask = [0, 0, 0, 0, 0]
+        self.led_pub.publish(pattern)
 
     def callback(self, msg):
         """
         Callback for processing camera images.
         """
-        # Convert compressed image to CV2
-        image = self._bridge.compressed_imgmsg_to_cv2(msg)
-        
         # Detect line color
-        detected_color = self.detect_line(image)
+        # detected_color = msg.cmd
+        detected_color = msg
         
-        if detected_color and detected_color != self.current_color:
+        if detected_color:
             self.current_color = detected_color
             rospy.loginfo(f"Detected line color: {detected_color}")
             
@@ -152,19 +136,12 @@ class BehaviorController(DTROS):
             elif detected_color == "green":
                 self.execute_green_line_behavior()
         
-        # If no color is detected, keep moving forward
-        elif not detected_color:
-            self.move_straight(0.1)  # Move forward slowly
+            # If no color is detected, keep moving forward
+            else:
+                self.move_straight(0.1)  # Move forward slowly
         
         self.rate.sleep()
-
-    def callback_right(self, data):
-        """Callback for right encoder ticks."""
-        if self._ticks_right_init is None:
-            self._ticks_right_init = data.data
-            self._ticks_right = 0
-        else:
-            self._ticks_right = data.data - self._ticks_right_init
+        return LaneBehaviorCMDResponse(True)
 
     def reset_encoders(self):
         """Reset encoder counters to track new movements."""
@@ -315,4 +292,5 @@ class BehaviorController(DTROS):
 
 if __name__ == '__main__':
     node = BehaviorController(node_name='behavior_controller_node')
+    # s = rospy.Service('behavior_service', LaneBehaviorCMD, node.callback)
     rospy.spin()

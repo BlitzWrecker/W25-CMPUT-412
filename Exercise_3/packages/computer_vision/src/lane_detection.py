@@ -8,10 +8,9 @@ import numpy as np
 from duckietown.dtros import DTROS, NodeType
 from sensor_msgs.msg import CompressedImage, Image
 from std_msgs.msg import String  # For publishing the lane color
-
-
 import cv2
 from cv_bridge import CvBridge
+from computer_vision.srv import LaneBehaviorCMD
 
 
 class LaneDetectionNode(DTROS):
@@ -48,22 +47,19 @@ class LaneDetectionNode(DTROS):
        self._camera_topic = f"/{self._vehicle_name}/camera_node/image/compressed"
        self._bridge = CvBridge()
 
-
        # Publisher for processed image
        self.pub = rospy.Publisher(f"/{self._vehicle_name}/processed_image", Image, queue_size=10)
 
-
        # Publisher for lane detection results (color)
-       self.lane_color_pub = rospy.Publisher(f"/{self._vehicle_name}/lane_color", String, queue_size=10)
-
+       # rospy.wait_for_service('behavior_service', timeout=1)
+       # self.lane_hehavior_service = rospy.ServiceProxy('behavior_service', LaneBehaviorCMD)
+       self.color_pub = rospy.Publisher('detected_color', String, queue_size=1)
 
        # Subscribe to camera feed
-       self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.callback)
-
+       self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.callback, queue_size=1)
 
        # Other variables
        self.rate = rospy.Rate(3)  # Increase rate to 10 Hz
-
 
    def undistort_image(self, image):
        return cv2.remap(image, self.map1, self.map2, cv2.INTER_LINEAR)
@@ -130,16 +126,13 @@ class LaneDetectionNode(DTROS):
        # Publish lane detection results (color)
        if detected_colors:
            detected_color = detected_colors[0]  # Publish the first detected color
-           self.lane_color_pub.publish(detected_color)
+           # self.lane_hehavior_service(detected_color)
+           self.color_pub.publish(detected_color)
            rospy.loginfo(f"Detected lane color: {detected_color}")
        else:
-           self.lane_color_pub.publish("None")
+           # self.lane_hehavior_service("None")
+           self.color_pub.publish("None")
            rospy.loginfo(f"No color detected")
-
-
-
-
-
 
        # self.rate.sleep()
 
