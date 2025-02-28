@@ -40,7 +40,10 @@ class LaneDetectionNode(DTROS):
         self.upper_red = np.array([10, 255, 255])
         self.lower_green = np.array([35, 50, 50])
         self.upper_green = np.array([90, 200, 255])
-    
+        self.lower_yellow = np.array([20, 100, 100])
+        self.upper_yellow = np.array([30, 255, 255])
+        self.lower_white = np.array([0, 0, 220])
+        self.upper_white = np.array([255, 35, 255])
     
         # Initialize bridge and subscribe to camera feed
         self._vehicle_name = os.environ['VEHICLE_NAME']
@@ -83,13 +86,15 @@ class LaneDetectionNode(DTROS):
         masks = {
             "blue": cv2.inRange(hsv_image, self.lower_blue, self.upper_blue),
             "red": cv2.inRange(hsv_image, self.lower_red, self.upper_red),
-            "green": cv2.inRange(hsv_image, self.lower_green, self.upper_green)
+            "green": cv2.inRange(hsv_image, self.lower_green, self.upper_green),
+            "yellow": cv2.inRange(hsv_image, self.lower_yellow, self.upper_yellow),
+            "white": cv2.inRange(hsv_image, self.lower_white, self.upper_white)
         }
         return masks
     
     
     def detect_lane(self, image, masks):
-        colors = {"blue": (255, 0, 0), "red": (0, 0, 255), "green": (0, 255, 0)}
+        colors = {"blue": (255, 0, 0), "red": (0, 0, 255), "green": (0, 255, 0), "yellow": (0, 255, 255), "white": (255, 255, 255)}
         detected_colors = []
     
     
