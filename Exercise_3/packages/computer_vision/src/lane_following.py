@@ -9,14 +9,29 @@ from sensor_msgs.msg import CompressedImage
 from duckietown_msgs.msg import WheelsCmdStamped
 from std_msgs.msg import Float32
 from cv_bridge import CvBridge
+import os
 
 
 class LaneFollowingNode(DTROS):
     def __init__(self, node_name):
         super(LaneFollowingNode, self).__init__(node_name=node_name, node_type=NodeType.CONTROL)
 
+        self.camera_matrix = np.array([[729.3017308196419, 0.0, 296.9297699654982],
+                                       [0.0, 714.8576567892494, 194.88265037301576],
+                                       [0.0, 0.0, 1.0]])
+
+        self.dist_coeffs = np.array(
+            [[-1.526832375685591], [2.217300696985744], [-0.00035517449407590306], [-0.013740460640726298], [0.0]])
+
+        # Precompute undistortion maps
+        h, w = 480, 640  # Adjust to your image size
+        self.new_camera_matrix, self.roi = cv2.getOptimalNewCameraMatrix(
+            self.camera_matrix, self.dist_coeffs, (w, h), 1, (w, h))
         # Select controller type ('P', 'PD', or 'PID')
-        self.controller_type = 'PID'  # Change as needed ('P', 'PD', 'PID')
+        self.map1, self.map2 = cv2.initUndistortRectifyMap(
+            self.camera_matrix, self.dist_coeffs, None, self.new_camera_matrix, (w, h), cv2.CV_16SC2)
+
+        self.controller_type = 'P'  # Change as needed ('P', 'PD', 'PID')
 
         # PID Gains
         self.kp = 0.5  # Proportional gain
@@ -34,17 +49,22 @@ class LaneFollowingNode(DTROS):
 
         # Initialize bridge and publishers/subscribers
         self.bridge = CvBridge()
-        self.pub_cmd = rospy.Publisher("/wheels_cmd", WheelsCmdStamped, queue_size=1)
-        rospy.Subscriber("/camera_node/image/compressed", CompressedImage, self.image_callback)
+        self._vehicle_name = os.environ['VEHICLE_NAME']
+        self.pub_cmd = rospy.Publisher(f"/{self._vehicle_name}/wheels_driver_node/wheels_cmd", WheelsCmdStamped, queue_size=1)
+        rospy.Subscriber(f"/{self._vehicle_name}/camera_node/image/compressed", CompressedImage, self.image_callback)
+
+    def undistort_image(self, image):
+        return cv2.remap(image, self.map1, self.map2, cv2.INTER_LINEAR)
 
     def preprocess_image(self, image):
         """Converts and preprocesses the image for lane detection."""
-        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-        return hsv
+        image = cv2.resize(image, (320, 240))  # Adjust resolution as needed
+        return cv2.GaussianBlur(image, (5, 5), 0)
 
     def calculate_error(self, image):
         """Detects lane and computes lateral offset from center."""
-        hsv = self.preprocess_image(image)
+        undistorted_image = self.undistort_image(image)
+        hsv = self.preprocess_image(undistorted_image)
         yellow_mask = cv2.inRange(hsv, (20, 100, 100), (30, 255, 255))
 
         contours, _ = cv2.findContours(yellow_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -76,6 +96,7 @@ class LaneFollowingNode(DTROS):
         return self.pd_control(error) + i_term
 
     def publish_cmd(self, error):
+        rate = rospy.Rate(10)
         """Computes control output and publishes wheel commands."""
         if self.controller_type == 'P':
             control = self.p_control(error)
@@ -90,12 +111,14 @@ class LaneFollowingNode(DTROS):
         cmd = WheelsCmdStamped()
         cmd.vel_left = left_speed
         cmd.vel_right = right_speed
-        self.pub_cmd.publish(cmd)
+        # self.pub_cmd.publish(cmd)
+        rate.sleep()
 
     def image_callback(self, msg):
         """Processes camera image to detect lane and compute error."""
         image = self.bridge.compressed_imgmsg_to_cv2(msg, desired_encoding="bgr8")
         error = self.calculate_error(image)
+        rospy.loginfo(error)
         self.publish_cmd(error)
 
 

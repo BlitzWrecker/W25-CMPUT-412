@@ -9,9 +9,10 @@ from std_msgs.msg import Float32
 import os
 
 # Constants
-WHEEL_RADIUS = 0.0318  # meters
+WHEEL_RADIUS = 0.0318  # meters (Duckiebot wheel radius)
+WHEEL_BASE = 0.05  # meters (distance between left and right wheels)
 TICKS_PER_ROTATION = 135  # Encoder ticks per full wheel rotation
-
+CURVE_SPEED = 0.5  # Base speed for curved movement
 
 class LaneControllerNode(DTROS):
     def __init__(self, node_name):
@@ -44,10 +45,10 @@ class LaneControllerNode(DTROS):
 
         # Initialize publisher/subscribers
         self._vehicle_name = os.environ['VEHICLE_NAME']
-        self.pub_cmd = rospy.Publisher(f"{self._vehicle_name}/wheels_cmd", WheelsCmdStamped, queue_size=1)
-        rospy.Subscriber(f"{self._vehicle_name}/lane_error", Float32, self.yellow_lane_callback)
-        rospy.Subscriber(f"{self._vehicle_name}/left_wheel_encoder", WheelEncoderStamped, self.callback_left)
-        rospy.Subscriber(f"{self._vehicle_name}/right_wheel_encoder", WheelEncoderStamped, self.callback_right)
+        self.pub_cmd = rospy.Publisher(f"/{self._vehicle_name}/wheels_cmd", WheelsCmdStamped, queue_size=1)
+        rospy.Subscriber(f"/{self._vehicle_name}/lane_error", Float32, self.yellow_lane_callback)
+        rospy.Subscriber(f"/{self._vehicle_name}/left_wheel_encoder_node/tick", WheelEncoderStamped, self.callback_left)
+        rospy.Subscriber(f"/{self._vehicle_name}/right_wheel_encoder_node/tick", WheelEncoderStamped, self.callback_right)
 
     def callback_left(self, data):
         if self._ticks_left_init is None:
