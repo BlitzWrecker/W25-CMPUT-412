@@ -100,6 +100,5 @@ class LaneFollowingNode(DTROS):
 
 
 if __name__ == '__main__':
-    rospy.init_node('lane_following_node')
     node = LaneFollowingNode(node_name='lane_following_node')
     rospy.spin()

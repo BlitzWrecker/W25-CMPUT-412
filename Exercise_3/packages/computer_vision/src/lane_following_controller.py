@@ -6,6 +6,7 @@ import math
 from duckietown.dtros import DTROS, NodeType
 from duckietown_msgs.msg import WheelsCmdStamped, WheelEncoderStamped
 from std_msgs.msg import Float32
+import os
 
 # Constants
 WHEEL_RADIUS = 0.0318  # meters
@@ -42,10 +43,11 @@ class LaneControllerNode(DTROS):
         self._ticks_right = None
 
         # Initialize publisher/subscribers
-        self.pub_cmd = rospy.Publisher("/wheels_cmd", WheelsCmdStamped, queue_size=1)
-        rospy.Subscriber("/lane_error", Float32, self.yellow_lane_callback)
-        rospy.Subscriber("/left_wheel_encoder", WheelEncoderStamped, self.callback_left)
-        rospy.Subscriber("/right_wheel_encoder", WheelEncoderStamped, self.callback_right)
+        self._vehicle_name = os.environ['VEHICLE_NAME']
+        self.pub_cmd = rospy.Publisher(f"{self._vehicle_name}/wheels_cmd", WheelsCmdStamped, queue_size=1)
+        rospy.Subscriber(f"{self._vehicle_name}/lane_error", Float32, self.yellow_lane_callback)
+        rospy.Subscriber(f"{self._vehicle_name}/left_wheel_encoder", WheelEncoderStamped, self.callback_left)
+        rospy.Subscriber(f"{self._vehicle_name}/right_wheel_encoder", WheelEncoderStamped, self.callback_right)
 
     def callback_left(self, data):
         if self._ticks_left_init is None:
@@ -115,6 +117,5 @@ class LaneControllerNode(DTROS):
 
 
 if __name__ == '__main__':
-    rospy.init_node('lane_controller_node')
     node = LaneControllerNode(node_name='lane_controller_node')
     rospy.spin()
