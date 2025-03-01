@@ -107,8 +107,8 @@ class LaneFollowingNode(DTROS):
 
                     cv2.rectangle(image, (x, y), (x + w, y + h), colors[color_name], 2)
 
-        final_yellow_x = yellow_max_x if detected_yellow else image.shape[0] // 2
-        final_white_x = white_min_x if detected_white else image.shape[0] // 2
+        final_yellow_x = yellow_max_x if detected_yellow else 0
+        final_white_x = white_min_x if detected_white else image.shape[0]
         return image, final_yellow_x, final_white_x
 
     def calculate_error(self, image):
@@ -124,7 +124,7 @@ class LaneFollowingNode(DTROS):
         yellow_line_displacement = min(v_mid_line - yellow_x, 0)
         white_line_displacement = min(white_x - v_mid_line, 0)
 
-        error = white_line_displacement - yellow_line_displacement
+        error = yellow_line_displacement - white_line_displacement
         return error
 
     def p_control(self, error):
