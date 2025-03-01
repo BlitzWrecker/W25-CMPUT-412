@@ -23,8 +23,19 @@ class LaneDetectionNode(DTROS):
                                        [0.0, 0.0, 1.0]])
         self.dist_coeffs = np.array(
             [[-1.526832375685591], [2.217300696985744], [-0.00035517449407590306], [-0.013740460640726298], [0.0]])
-    
-    
+
+        self.homography = np.array([
+            -4.3606292146280124e-05,
+            0.0003805216196272236,
+            0.2859625589246484,
+            -0.00140575582723828,
+            6.134315694680119e-05,
+            0.396570514773939,
+            -0.0001717830439245288,
+            0.010136558604291714,
+            -1.0992556526691932,
+        ]).reshape(3, 3)
+
         # Precompute undistortion maps
         h, w = 480, 640  # Adjust to your image size
         self.new_camera_matrix, self.roi = cv2.getOptimalNewCameraMatrix(
@@ -91,7 +102,14 @@ class LaneDetectionNode(DTROS):
             "white": cv2.inRange(hsv_image, self.lower_white, self.upper_white)
         }
         return masks
-    
+
+
+    def calculate_lane_dimension(self, u, v):
+        pixel_coord = np.array([u, v, 1]).reshape(3, 1)
+        world_coord = np.dot(self.homography, pixel_coord)
+        world_coord /= world_coord[2]
+        return world_coord[:2].flatten()
+        
     
     def detect_lane(self, image, masks):
         colors = {"blue": (255, 0, 0), "red": (0, 0, 255), "green": (0, 255, 0), "yellow": (0, 255, 255), "white": (255, 255, 255)}
@@ -109,6 +127,10 @@ class LaneDetectionNode(DTROS):
                 if cv2.contourArea(contour) > 200:  # Filter small contours
                     x, y, w, h = cv2.boundingRect(contour)
                     cv2.rectangle(image, (x, y), (x + w, y + h), colors[color_name], 2)
+                    lane_start = self.calculate_lane_dimension(x, y)
+                    lane_end = self.calculate_lane_dimension(x + w, y)
+                    lane_length = (lane_end[0] - lane_start[0]) * 100
+                    cv2.putText(image, f"{lane_length:.2f} cm", (x, y + h + 10), cv2.FONT_HERSHEY_PLAIN, 1, colors[color_name])
                     detected_colors.append(color_name)
         return image, detected_colors
     
