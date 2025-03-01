@@ -107,8 +107,8 @@ class LaneFollowingNode(DTROS):
 
                     cv2.rectangle(image, (x, y), (x + w, y + h), colors[color_name], 2)
 
-        final_yellow_x = yellow_max_x if detected_yellow else 0
-        final_white_x = white_min_x if detected_white else 320
+        final_yellow_x = yellow_max_x if detected_yellow else image.shape[0] // 2
+        final_white_x = white_min_x if detected_white else image.shape[0] // 2
         return image, final_yellow_x, final_white_x
 
     def calculate_error(self, image):
