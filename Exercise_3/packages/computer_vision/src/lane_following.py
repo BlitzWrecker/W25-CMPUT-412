@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 import time
 from duckietown.dtros import DTROS, NodeType
-from sensor_msgs.msg import CompressedImage
+from sensor_msgs.msg import CompressedImage, Image
 from duckietown_msgs.msg import WheelsCmdStamped
 from std_msgs.msg import Float32
 from cv_bridge import CvBridge
@@ -51,7 +51,13 @@ class LaneFollowingNode(DTROS):
         self.bridge = CvBridge()
         self._vehicle_name = os.environ['VEHICLE_NAME']
         self.pub_cmd = rospy.Publisher(f"/{self._vehicle_name}/wheels_driver_node/wheels_cmd", WheelsCmdStamped, queue_size=1)
-        rospy.Subscriber(f"/{self._vehicle_name}/camera_node/image/compressed", CompressedImage, self.image_callback)
+        self.image_sub = rospy.Subscriber(f"/{self._vehicle_name}/camera_node/image/compressed", CompressedImage, self.image_callback)
+        self.image_pub = rospy.Publisher(f"/{self._vehicle_name}/processed_image", Image, queue_size=10)
+
+        self.lower_yellow = np.array([20, 100, 100])
+        self.upper_yellow = np.array([30, 255, 255])
+        self.lower_white = np.array([0, 0, 215])
+        self.upper_white = np.array([255, 10, 225])
 
     def undistort_image(self, image):
         return cv2.remap(image, self.map1, self.map2, cv2.INTER_LINEAR)
@@ -61,21 +67,65 @@ class LaneFollowingNode(DTROS):
         image = cv2.resize(image, (320, 240))  # Adjust resolution as needed
         return cv2.GaussianBlur(image, (5, 5), 0)
 
+    def detect_lane_color(self, image):
+        hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        masks = {
+            "yellow": cv2.inRange(hsv_image, self.lower_yellow, self.upper_yellow),
+            "white": cv2.inRange(hsv_image, self.lower_white, self.upper_white)
+        }
+        return masks
+
+    def detect_lane(self, image, masks):
+        colors = {"yellow": (0, 255, 255), "white": (255, 255, 255)}
+        detected_white, detected_yellow = False, False
+        yellow_max_x = 0
+        white_min_x = 1000
+    
+        for color_name, mask in masks.items():
+            if color_name == "white": 
+                detected_white = True
+            elif color_name == "yellow":
+                detected_yellow = True
+            else:
+                continue
+
+            masked_color = cv2.bitwise_and(image, image, mask=mask)
+            gray = cv2.cvtColor(masked_color, cv2.COLOR_BGR2GRAY)
+            _, thresh = cv2.threshold(gray, 50, 255, cv2.THRESH_BINARY)
+            contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+            for contour in contours:
+                if cv2.contourArea(contour) > 200:  # Filter small contours
+                    x, y, w, h = cv2.boundingRect(contour)
+
+                    if color_name == "yellow":
+                        yellow_max_x = max(yellow_max_x, x + w / 2)
+                    elif color_name == "white":
+                        white_min_x = min(white_min_x, x + w / 2)
+                    else:
+                        raise ValueError
+
+                    cv2.rectangle(image, (x, y), (x + w, y + h), colors[color_name], 2)
+
+        final_yellow_x = yellow_max_x if detected_yellow else 0
+        final_white_x = white_min_x if detected_white else 320
+        return image, final_yellow_x, final_white_x
+
     def calculate_error(self, image):
         """Detects lane and computes lateral offset from center."""
         undistorted_image = self.undistort_image(image)
-        hsv = self.preprocess_image(undistorted_image)
-        yellow_mask = cv2.inRange(hsv, (20, 100, 100), (30, 255, 255))
+        preprocessed_image = self.preprocess_image(undistorted_image)
+        masks = self.detect_lane_color(preprocessed_image)
+        lane_detected_image, yellow_x, white_x = self.detect_lane(preprocessed_image, masks)
 
-        contours, _ = cv2.findContours(yellow_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        if contours:
-            largest_contour = max(contours, key=cv2.contourArea)
-            M = cv2.moments(largest_contour)
-            if M["m00"] > 0:
-                cx = int(M["m10"] / M["m00"])
-                image_center = image.shape[1] // 2
-                return (cx - image_center) / float(image.shape[1])
-        return 0.0
+        self.image_pub.publish(self.bridge.cv2_to_imgmsg(lane_detected_image, encoding="bgr8"))
+
+        v_mid_line = image.shape[0] // 2
+        yellow_line_displacement = min(v_mid_line - yellow_x, 0)
+        white_line_displacement = min(white_x - v_mid_line, 0)
+
+        error = white_line_displacement - yellow_line_displacement
+        return error
 
     def p_control(self, error):
         return self.kp * error
@@ -105,8 +155,8 @@ class LaneFollowingNode(DTROS):
         else:
             control = self.pid_control(error)
 
-        left_speed = max(min(self.base_speed - control, self.max_speed), -self.max_speed)
-        right_speed = max(min(self.base_speed + control, self.max_speed), -self.max_speed)
+        left_speed = max(min(self.base_speed - control, self.max_speed), 0)
+        right_speed = max(min(self.base_speed + control, self.max_speed), 0)
 
         cmd = WheelsCmdStamped()
         cmd.vel_left = left_speed
