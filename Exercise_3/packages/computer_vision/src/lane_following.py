@@ -53,7 +53,7 @@ class LaneFollowingNode(DTROS):
 
         # Movement parameters
         self.base_speed = 0.3  # Base wheel speed
-        self.max_speed = 1.0  # Max wheel speed
+        self.max_speed = 0.5 # Max wheel speed
 
 
         # Initialize bridge and publishers/subscribers
@@ -153,19 +153,41 @@ class LaneFollowingNode(DTROS):
 
     def pd_control(self, error):
         current_time = time.time()
-        dt = current_time - self.last_time if self.last_time else 0.1
-        d_term = self.kd * (error - self.prev_error) / dt if dt > 0 else 0
+        dt = current_time - self.last_time
+        if dt <= 0:
+            dt = 1e-5  # Avoid division by zero
+
+        derivative = (error - self.prev_error) / dt
+        control = self.kp * error + self.kd * derivative
+
+        # Update previous values for next iteration
         self.prev_error = error
         self.last_time = current_time
-        return self.p_control(error) + d_term
+
+        return control
 
 
     def pid_control(self, error):
         current_time = time.time()
-        dt = current_time - self.last_time if self.last_time else 0.1
+        dt = current_time - self.last_time
+        if dt <= 0:
+            dt = 1e-5  # Avoid division by zero
+
+        # Calculate integral term with windup protection
         self.integral += error * dt
-        i_term = self.ki * self.integral
-        return self.pd_control(error) + i_term
+        integral_max = 1.0  # Tune this value based on your system
+        self.integral = np.clip(self.integral, -integral_max, integral_max)
+
+        # Calculate derivative term
+        derivative = (error - self.prev_error) / dt
+
+        control = self.kp * error + self.ki * self.integral + self.kd * derivative
+
+        # Update previous values for next iteration
+        self.prev_error = error
+        self.last_time = current_time
+
+        return control
 
 
     def publish_cmd(self, error):
