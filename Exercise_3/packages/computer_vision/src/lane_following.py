@@ -112,9 +112,9 @@ class LaneFollowingNode(DTROS):
 
 
                     if color_name == "yellow":
-                        yellow_max_x = max(yellow_max_x, x + w / 2)
+                        yellow_max_x = min(max(yellow_max_x, x + w / 2), image.shape[1] // 2)
                     elif color_name == "white":
-                        white_min_x = min(white_min_x, x + w / 2)
+                        white_min_x = max(min(white_min_x, x + w / 2), image.shape[1] // 2)
                     else:
                         raise ValueError
 
@@ -123,7 +123,8 @@ class LaneFollowingNode(DTROS):
 
 
         final_yellow_x = yellow_max_x if detected_yellow else 0
-        final_white_x = white_min_x if detected_white else image.shape[0]
+        final_white_x = white_min_x if detected_white else image.shape[1]
+        rospy.loginfo(f"{final_yellow_x}, {final_white_x}")
         return image, final_yellow_x, final_white_x
 
 
@@ -137,11 +138,10 @@ class LaneFollowingNode(DTROS):
 
         self.image_pub.publish(self.bridge.cv2_to_imgmsg(lane_detected_image, encoding="bgr8"))
 
-
-        v_mid_line = image.shape[0] // 2
-        yellow_line_displacement = min(v_mid_line - yellow_x, 0)
-        white_line_displacement = min(white_x - v_mid_line, 0)
-
+        v_mid_line = preprocessed_image.shape[1] // 2
+        yellow_line_displacement = max(v_mid_line - yellow_x, 0)
+        white_line_displacement = max(white_x - v_mid_line, 0)
+        rospy.loginfo(f"{image.shape}, {yellow_line_displacement}, {white_line_displacement}")
 
         error = yellow_line_displacement - white_line_displacement
         return error
