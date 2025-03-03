@@ -48,11 +48,11 @@ class LaneFollowingNode(DTROS):
             self.camera_matrix, self.dist_coeffs, None, self.new_camera_matrix, (w, h), cv2.CV_16SC2)
 
 
-        self.controller_type = 'P'  # Change as needed ('P', 'PD', 'PID')
+        self.controller_type = 'PID'  # Change as needed ('P', 'PD', 'PID')
 
 
         # PID Gains
-        self.kp = 0.5  # Proportional gain
+        self.kp = 1.0  # Proportional gain
         self.kd = 0.1  # Derivative gain
         self.ki = 0.01  # Integral gain
 
