@@ -17,7 +17,9 @@ class LaneDetectionNode(DTROS):
     def __init__(self, node_name):
         super(LaneDetectionNode, self).__init__(node_name=node_name, node_type=NodeType.PERCEPTION)
        
-        # Camera calibration parameters
+        # Camera calibration parameters extracted from the file manager on the dashboard
+        # Hard coding is a bad practice; We will have to hard code these parameters again if we switch to another Duckiebot
+        # We found a ROS topic that gives us the intrinsic parameters, but not the extrinsict parameters (i.e. the homography matrix)
         self.camera_matrix = np.array([[729.3017308196419, 0.0, 296.9297699654982],
                                        [0.0, 714.8576567892494, 194.88265037301576],
                                        [0.0, 0.0, 1.0]])
@@ -98,17 +100,25 @@ class LaneDetectionNode(DTROS):
             "blue": cv2.inRange(hsv_image, self.lower_blue, self.upper_blue),
             "red": cv2.inRange(hsv_image, self.lower_red, self.upper_red),
             "green": cv2.inRange(hsv_image, self.lower_green, self.upper_green),
-            "yellow": cv2.inRange(hsv_image, self.lower_yellow, self.upper_yellow),
-            "white": cv2.inRange(hsv_image, self.lower_white, self.upper_white)
+            # "yellow": cv2.inRange(hsv_image, self.lower_yellow, self.upper_yellow),
+            # "white": cv2.inRange(hsv_image, self.lower_white, self.upper_white)
         }
         return masks
 
 
-    def calculate_lane_dimension(self, u, v):
+    # Asked ChatGPT "how to use extrinsic parameters to calculate distance between two objects in an image"
+    # ChatGPT answered with a very generic computation method using a rotation matrix and a translation vector
+    # Then followed up with "I am working with a duckiebot".
+    # ChatGPT answered with an algorithm using the homography matrx
+    def extrinsic_transform(self, u, v):
         pixel_coord = np.array([u, v, 1]).reshape(3, 1)
         world_coord = np.dot(self.homography, pixel_coord)
         world_coord /= world_coord[2]
         return world_coord[:2].flatten()
+
+    
+    def calculate_lane_dimension(self, l1, l2):
+        return np.linalg.norm(l2 - l1) * 100
         
     
     def detect_lane(self, image, masks):
@@ -127,9 +137,9 @@ class LaneDetectionNode(DTROS):
                 if cv2.contourArea(contour) > 200:  # Filter small contours
                     x, y, w, h = cv2.boundingRect(contour)
                     cv2.rectangle(image, (x, y), (x + w, y + h), colors[color_name], 2)
-                    lane_start = self.calculate_lane_dimension(x, y)
-                    lane_end = self.calculate_lane_dimension(x + w, y)
-                    lane_length = (lane_end[0] - lane_start[0]) * 100
+                    lane_start = self.extrinsic_transform(x, y)
+                    lane_end = self.extrinsic_transform(x + w, y)
+                    lane_length = self.calculate_lane_dimension(lane_end, lane_start)
                     cv2.putText(image, f"{lane_length:.2f} cm", (x, y + h + 10), cv2.FONT_HERSHEY_PLAIN, 1, colors[color_name])
                     detected_colors.append(color_name)
         return image, detected_colors
