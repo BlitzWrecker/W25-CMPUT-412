@@ -26,6 +26,18 @@ class LaneFollowingNode(DTROS):
         self.dist_coeffs = np.array(
             [[-1.526832375685591], [2.217300696985744], [-0.00035517449407590306], [-0.013740460640726298], [0.0]])
 
+        self.homography = np.array([
+            -4.3606292146280124e-05,
+            0.0003805216196272236,
+            0.2859625589246484,
+            -0.00140575582723828,
+            6.134315694680119e-05,
+            0.396570514773939,
+            -0.0001717830439245288,
+            0.010136558604291714,
+            -1.0992556526691932,
+        ]).reshape(3, 3)
+
 
         # Precompute undistortion maps
         h, w = 480, 640  # Adjust to your image size
@@ -124,8 +136,23 @@ class LaneFollowingNode(DTROS):
 
         final_yellow_x = yellow_max_x if detected_yellow else 0
         final_white_x = white_min_x if detected_white else image.shape[1]
-        rospy.loginfo(f"{final_yellow_x}, {final_white_x}")
+        # rospy.loginfo(f"{final_yellow_x}, {final_white_x}")
         return image, final_yellow_x, final_white_x
+
+
+    # Asked ChatGPT "how to use extrinsic parameters to calculate distance between two objects in an image"
+    # ChatGPT answered with a very generic computation method using a rotation matrix and a translation vector
+    # Then followed up with "I am working with a duckiebot".
+    # ChatGPT answered with an algorithm using the homography matrx
+    def extrinsic_transform(self, u, v):
+        pixel_coord = np.array([u, v, 1]).reshape(3, 1)
+        world_coord = np.dot(self.homography, pixel_coord)
+        world_coord /= world_coord[2]
+        return world_coord[:2].flatten()
+    
+
+    def calculate_distance(self, l1, l2):
+        return np.linalg.norm(l2 - l1)
 
 
     def calculate_error(self, image):
@@ -138,10 +165,12 @@ class LaneFollowingNode(DTROS):
 
         self.image_pub.publish(self.bridge.cv2_to_imgmsg(lane_detected_image, encoding="bgr8"))
 
-        v_mid_line = preprocessed_image.shape[1] // 2
-        yellow_line_displacement = max(v_mid_line - yellow_x, 0)
-        white_line_displacement = max(white_x - v_mid_line, 0)
-        rospy.loginfo(f"{image.shape}, {yellow_line_displacement}, {white_line_displacement}")
+        v_mid_line = self.extrinsic_transform(preprocessed_image.shape[1] // 2, 0) 
+        yellow_line = self.extrinsic_transform(yellow_x, 0)
+        white_line = self.extrinsic_transform(white_x, 0)
+        yellow_line_displacement = max(float(self.calculate_distance(yellow_line, v_mid_line)), 0.0)
+        white_line_displacement = max(float(self.calculate_distance(v_mid_line, white_line)), 0)
+        # rospy.loginfo(f"{image.shape}, {yellow_line_displacement}, {white_line_displacement}")
 
         error = yellow_line_displacement - white_line_displacement
         return error
@@ -191,7 +220,6 @@ class LaneFollowingNode(DTROS):
 
 
     def publish_cmd(self, error):
-        rate = rospy.Rate(10)
         """Computes control output and publishes wheel commands."""
         if self.controller_type == 'P':
             control = self.p_control(error)
@@ -225,6 +253,14 @@ class LaneFollowingNode(DTROS):
         self.publish_cmd(error)
 
 
+    def on_shutdown(self):
+        cmd = WheelsCmdStamped()
+        cmd.vel_left = 0
+        cmd.vel_right = 0
+        self.pub_cmd.publish(cmd)
+
+
 if __name__ == '__main__':
     node = LaneFollowingNode(node_name='lane_following_node')
+    rospy.on_shutdown(node.on_shutdown)
     rospy.spin()
