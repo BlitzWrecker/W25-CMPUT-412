@@ -113,7 +113,7 @@ class LaneDetectionNode(DTROS):
         return world_coord[:2].flatten()
 
     def calculate_lane_dimension(self, l1, l2):
-        return np.linalg.norm(l2 - l1) * 100
+        return np.linalg.norm(l2 - l1) * 100 * 0.3
         
     def detect_lane(self, image, masks):
         colors = {"blue": (255, 0, 0), "red": (0, 0, 255), "green": (0, 255, 0), "yellow": (0, 255, 255), "white": (255, 255, 255)}
