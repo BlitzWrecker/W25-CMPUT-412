@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+# We referenced https://github.com/duckietown/dt-core/blob/daffy/packages/line_detector/src/line_detector_node.py
 
 # import required libraries
 import os
@@ -11,7 +12,6 @@ from std_msgs.msg import String  # For publishing the lane color
 import cv2
 from cv_bridge import CvBridge
 from computer_vision.srv import LaneBehaviorCMD
-
 
 class LaneDetectionNode(DTROS):
     def __init__(self, node_name):
@@ -44,7 +44,6 @@ class LaneDetectionNode(DTROS):
             self.camera_matrix, self.dist_coeffs, (w, h), 1, (w, h))
         self.map1, self.map2 = cv2.initUndistortRectifyMap(
             self.camera_matrix, self.dist_coeffs, None, self.new_camera_matrix, (w, h), cv2.CV_16SC2)
-    
     
         # Color detection parameters in HSV format
         self.lower_blue = np.array([100, 150, 50])
@@ -87,12 +86,10 @@ class LaneDetectionNode(DTROS):
     def undistort_image(self, image):
         return cv2.remap(image, self.map1, self.map2, cv2.INTER_LINEAR)
     
-    
     def preprocess_image(self, image):
         # Downscale the image
         image = cv2.resize(image, (320, 240))  # Adjust resolution as needed
         return cv2.GaussianBlur(image, (5, 5), 0)
-    
     
     def detect_lane_color(self, image):
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -105,7 +102,6 @@ class LaneDetectionNode(DTROS):
         }
         return masks
 
-
     # Asked ChatGPT "how to use extrinsic parameters to calculate distance between two objects in an image"
     # ChatGPT answered with a very generic computation method using a rotation matrix and a translation vector
     # Then followed up with "I am working with a duckiebot".
@@ -116,22 +112,18 @@ class LaneDetectionNode(DTROS):
         world_coord /= world_coord[2]
         return world_coord[:2].flatten()
 
-    
     def calculate_lane_dimension(self, l1, l2):
         return np.linalg.norm(l2 - l1) * 100
         
-    
     def detect_lane(self, image, masks):
         colors = {"blue": (255, 0, 0), "red": (0, 0, 255), "green": (0, 255, 0), "yellow": (0, 255, 255), "white": (255, 255, 255)}
         detected_colors = []
-    
     
         for color_name, mask in masks.items():
             masked_color = cv2.bitwise_and(image, image, mask=mask)
             gray = cv2.cvtColor(masked_color, cv2.COLOR_BGR2GRAY)
             _, thresh = cv2.threshold(gray, 50, 255, cv2.THRESH_BINARY)
             contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    
     
             for contour in contours:
                 if cv2.contourArea(contour) > 200:  # Filter small contours
@@ -144,28 +136,22 @@ class LaneDetectionNode(DTROS):
                     detected_colors.append(color_name)
         return image, detected_colors
     
-    
     def callback(self, msg):
         # Convert compressed image to CV2
         image = self._bridge.compressed_imgmsg_to_cv2(msg)
     
-    
         # Undistort image
         undistorted_image = self.undistort_image(image)
     
-    
         # Preprocess image
         preprocessed_image = self.preprocess_image(undistorted_image)
-    
     
         # Detect lanes and colors
         masks = self.detect_lane_color(preprocessed_image)
         lane_detected_image, detected_colors = self.detect_lane(preprocessed_image.copy(), masks)
     
-    
         # Publish processed image (optional)
         self.pub.publish(self._bridge.cv2_to_imgmsg(lane_detected_image, encoding="bgr8"))
-    
     
         # Publish lane detection results (color)
         if detected_colors:
@@ -190,9 +176,7 @@ class LaneDetectionNode(DTROS):
                 # self.color_pub.publish("None")
                 self.last_color = "None"
                 rospy.loginfo(f"No color detected")
-    
         # self.rate.sleep()
-
 
 if __name__ == '__main__':
    node = LaneDetectionNode(node_name='lane_detection_node')
