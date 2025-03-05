@@ -48,7 +48,7 @@ class LaneFollowingNode(DTROS):
             self.camera_matrix, self.dist_coeffs, None, self.new_camera_matrix, (w, h), cv2.CV_16SC2)
 
 
-        self.controller_type = 'PID'  # Change as needed ('P', 'PD', 'PID')
+        self.controller_type = 'P'  # Change as needed ('P', 'PD', 'PID')
 
 
         # PID Gains
@@ -101,8 +101,8 @@ class LaneFollowingNode(DTROS):
     def detect_lane(self, image, masks):
         colors = {"yellow": (0, 255, 255), "white": (255, 255, 255)}
         detected_white, detected_yellow = False, False
-        yellow_max_x = 0
-        white_min_x = 1000
+        yellow_min_x = 1000
+        white_max_x = 0
 
         for color_name, mask in masks.items():
             if color_name == "white":
@@ -124,9 +124,9 @@ class LaneFollowingNode(DTROS):
 
 
                     if color_name == "yellow":
-                        yellow_max_x = min(max(yellow_max_x, x + w / 2), image.shape[1] // 2)
+                        yellow_min_x = max(min(yellow_min_x, x + w / 2), image.shape[1] // 2)
                     elif color_name == "white":
-                        white_min_x = max(min(white_min_x, x + w / 2), image.shape[1] // 2)
+                        white_max_x = min(max(white_max_x, x + w / 2), image.shape[1] // 2)
                     else:
                         raise ValueError
 
@@ -134,8 +134,8 @@ class LaneFollowingNode(DTROS):
                     cv2.rectangle(image, (x, y), (x + w, y + h), colors[color_name], 2)
 
 
-        final_yellow_x = yellow_max_x if detected_yellow else 0
-        final_white_x = white_min_x if detected_white else image.shape[1]
+        final_yellow_x = yellow_min_x if detected_yellow else image.shape[1]
+        final_white_x = white_max_x if detected_white else 0
         # rospy.loginfo(f"{final_yellow_x}, {final_white_x}")
         return image, final_yellow_x, final_white_x
 
@@ -152,7 +152,7 @@ class LaneFollowingNode(DTROS):
     
 
     def calculate_distance(self, l1, l2):
-        return np.linalg.norm(l2 - l1)
+        return np.linalg.norm(l1 - l2)
 
 
     def calculate_error(self, image):
@@ -172,7 +172,7 @@ class LaneFollowingNode(DTROS):
         white_line_displacement = max(float(self.calculate_distance(v_mid_line, white_line)), 0)
         # rospy.loginfo(f"{image.shape}, {yellow_line_displacement}, {white_line_displacement}")
 
-        error = yellow_line_displacement - white_line_displacement
+        error = -(yellow_line_displacement - white_line_displacement)
         return error
 
 

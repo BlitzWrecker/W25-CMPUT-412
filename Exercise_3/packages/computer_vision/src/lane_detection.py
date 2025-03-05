@@ -17,14 +17,27 @@ class LaneDetectionNode(DTROS):
     def __init__(self, node_name):
         super(LaneDetectionNode, self).__init__(node_name=node_name, node_type=NodeType.PERCEPTION)
        
-        # Camera calibration parameters
+        # Camera calibration parameters extracted from the file manager on the dashboard
+        # Hard coding is a bad practice; We will have to hard code these parameters again if we switch to another Duckiebot
+        # We found a ROS topic that gives us the intrinsic parameters, but not the extrinsict parameters (i.e. the homography matrix)
         self.camera_matrix = np.array([[729.3017308196419, 0.0, 296.9297699654982],
                                        [0.0, 714.8576567892494, 194.88265037301576],
                                        [0.0, 0.0, 1.0]])
         self.dist_coeffs = np.array(
             [[-1.526832375685591], [2.217300696985744], [-0.00035517449407590306], [-0.013740460640726298], [0.0]])
-    
-    
+
+        self.homography = np.array([
+            -4.3606292146280124e-05,
+            0.0003805216196272236,
+            0.2859625589246484,
+            -0.00140575582723828,
+            6.134315694680119e-05,
+            0.396570514773939,
+            -0.0001717830439245288,
+            0.010136558604291714,
+            -1.0992556526691932,
+        ]).reshape(3, 3)
+
         # Precompute undistortion maps
         h, w = 480, 640  # Adjust to your image size
         self.new_camera_matrix, self.roi = cv2.getOptimalNewCameraMatrix(
@@ -40,7 +53,10 @@ class LaneDetectionNode(DTROS):
         self.upper_red = np.array([10, 255, 255])
         self.lower_green = np.array([35, 50, 50])
         self.upper_green = np.array([90, 200, 255])
-    
+        self.lower_yellow = np.array([20, 100, 100])
+        self.upper_yellow = np.array([30, 255, 255])
+        self.lower_white = np.array([0, 0, 220])
+        self.upper_white = np.array([255, 35, 255])
     
         # Initialize bridge and subscribe to camera feed
         self._vehicle_name = os.environ['VEHICLE_NAME']
@@ -83,13 +99,30 @@ class LaneDetectionNode(DTROS):
         masks = {
             "blue": cv2.inRange(hsv_image, self.lower_blue, self.upper_blue),
             "red": cv2.inRange(hsv_image, self.lower_red, self.upper_red),
-            "green": cv2.inRange(hsv_image, self.lower_green, self.upper_green)
+            "green": cv2.inRange(hsv_image, self.lower_green, self.upper_green),
+            # "yellow": cv2.inRange(hsv_image, self.lower_yellow, self.upper_yellow),
+            # "white": cv2.inRange(hsv_image, self.lower_white, self.upper_white)
         }
         return masks
+
+
+    # Asked ChatGPT "how to use extrinsic parameters to calculate distance between two objects in an image"
+    # ChatGPT answered with a very generic computation method using a rotation matrix and a translation vector
+    # Then followed up with "I am working with a duckiebot".
+    # ChatGPT answered with an algorithm using the homography matrx
+    def extrinsic_transform(self, u, v):
+        pixel_coord = np.array([u, v, 1]).reshape(3, 1)
+        world_coord = np.dot(self.homography, pixel_coord)
+        world_coord /= world_coord[2]
+        return world_coord[:2].flatten()
+
     
+    def calculate_lane_dimension(self, l1, l2):
+        return np.linalg.norm(l2 - l1) * 100
+        
     
     def detect_lane(self, image, masks):
-        colors = {"blue": (255, 0, 0), "red": (0, 0, 255), "green": (0, 255, 0)}
+        colors = {"blue": (255, 0, 0), "red": (0, 0, 255), "green": (0, 255, 0), "yellow": (0, 255, 255), "white": (255, 255, 255)}
         detected_colors = []
     
     
@@ -104,6 +137,10 @@ class LaneDetectionNode(DTROS):
                 if cv2.contourArea(contour) > 200:  # Filter small contours
                     x, y, w, h = cv2.boundingRect(contour)
                     cv2.rectangle(image, (x, y), (x + w, y + h), colors[color_name], 2)
+                    lane_start = self.extrinsic_transform(x, y)
+                    lane_end = self.extrinsic_transform(x + w, y)
+                    lane_length = self.calculate_lane_dimension(lane_end, lane_start)
+                    cv2.putText(image, f"{lane_length:.2f} cm", (x, y + h + 10), cv2.FONT_HERSHEY_PLAIN, 1, colors[color_name])
                     detected_colors.append(color_name)
         return image, detected_colors
     
