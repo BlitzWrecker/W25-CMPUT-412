@@ -1,47 +1,69 @@
-# Template: template-ros
+# Exercise 3: Computer Vision and Autonomous Navigation
 
-This template provides a boilerplate repository
-for developing ROS-based software in Duckietown.
+This repository is built on the following template: [Duckietown Template-ROS](https://github.com/duckietown/template-ros/).
 
-**NOTE:** If you want to develop software that does not use
-ROS, check out [this template](https://github.com/duckietown/template-basic).
+In this exercise, we explore computer vision techniques for lane detection, color-based behavior execution, and autonomous navigation using controllers. The project is divided into three main parts: **Computer Vision**, **Controllers**, and **Lane Following**.
 
+---
 
-## How to use it
+## Part 1: Computer Vision
 
-### 1. Fork this repository
+### Camera Distortion Correction and Color Detection
+📌 **File:** `packages/computer_vision/src/lane_detection.py`  
+📝 **Description:** Corrects camera distortion using intrinsic parameters, detects blue, red, and green lanes using HSV color thresholds, performs contouring. Publishes to processed_image.
 
-Use the fork button in the top-right corner of the github page to fork this template repository.
+### Lane Behavior
+📌 **File:** `packages/computer_vision/src/lane_based_behavior_controller.py`  
+📝 **Description:** executes lane-specific behaviors (e.g., stopping, turning, signaling LEDs).
 
+▶ **Launch Command:**
+```bash
+dts devel run -H ROBOT_NAME -L lane-based-behavior
+```
 
-### 2. Create a new repository
+---
 
-Create a new repository on github.com while
-specifying the newly forked template repository as
-a template for your new repository.
-
-
-### 3. Define dependencies
-
-List the dependencies in the files `dependencies-apt.txt` and
-`dependencies-py3.txt` (apt packages and pip packages respectively).
-
-
-### 4. Place your code
-
-Place your code in the directory `/packages/` of
-your new repository.
+## Part 2: Controllers
 
 
-### 5. Setup launchers
+📌 **File:** `packages/computer_vision/src/lane_following_controller.py`  
+📝 **Description:** Implements P, PD, and PID controllers for lane following along a straight path for 1.5 meters.
 
-The directory `/launchers` can contain as many launchers (launching scripts)
-as you want. A default launcher called `default.sh` must always be present.
+▶ **Launch Command:**
+```bash
+dts devel run -H ROBOT_NAME -L lane-follow-controller
+```
 
-If you create an executable script (i.e., a file with a valid shebang statement)
-a launcher will be created for it. For example, the script file 
-`/launchers/my-launcher.sh` will be available inside the Docker image as the binary
-`dt-launcher-my-launcher`.
+---
 
-When launching a new container, you can simply provide `dt-launcher-my-launcher` as
-command.
+## Part 3: Lane Following
+
+### Lane Following Node
+📌 **File:** `packages/computer_vision/src/lane_following.py`  
+📝 **Description:** Integrates computer vision and controllers to perform full-lap lane following using OpenCV.
+
+▶ **Launch Command:**
+```bash
+dts devel run -H ROBOT_NAME -L lane-following
+```
+
+---
+
+## 🚀 Running the Exercises
+Replace `ROBOT_NAME` with your actual robot's name in the commands.
+
+Happy coding! 🤖🎯
+
+---
+
+## Bonus: English Driving
+
+📌 **File:** `packages/computer_vision/src/english_driving.py`  
+📝 **Description:** This is almost identical to lane_following.py, except the duckiebot drives on the left side of the road instead. It also performs full-lap lane following.
+
+▶ **Launch Command:**
+```bash
+dts devel run -H ROBOT_NAME -L english-driving
+```
+
+---
