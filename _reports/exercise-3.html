@@ -1,0 +1,318 @@
+---
+title: "Exercise 3 - Computer Vision & Controllers for Robotics"
+collection: reports
+permalink: /report/exercise-3
+excerpt: 'Written report for lab exercise 3'
+date: 2025-03-09
+---
+
+{% include base_path %}
+
+<style>
+  .ex3-section {
+    display: grid;
+    grid-template-columns: 50% 50%;
+    justify-items: center;
+    gap: 1em;
+    padding-bottom: 1em;
+  }
+
+  .ex3-article {
+    display: flex;
+    flex-direction: column;
+  }
+
+  p {
+    text-align: justify;
+    text-justify: inter-word;
+  }
+
+  li {
+    text-align: justify;
+    text-justify: inter-word;
+  }
+
+  iframe {
+    border-radius: 2em;
+  }
+</style>
+
+<section class="ex3-section">
+  <article class="ex3-article">
+    <h1 style="text-align: center">Distorted Image</h1>
+    <img src="{{ base_path }}/images/ex3-distorted-image.png" alt="A distorted image captured from the Duckiebot's camera" style="display: block; margin-left: auto; margin-right: auto; float: none;">
+    <p>
+      This image was captured using our Duckiebot's camera. It is distorted, as shown by the curved lines and edges on the calibration board. We should not perform vision-based operations using distorted images because they do not accurately reflect the real world. In this case, (trust me) the lines and edges on the calibration board are straight.
+    </p>
+  </article>
+  <article class="ex3-article">
+    <h1 style="text-align: center">Undistorted Image</h1>
+    <img src="{{ base_path }}/images/ex3-undistorted-image.png" alt="The undistorted image after extrinsic transformation" style="display: block; margin-left: auto; margin-right: auto; float: none;">
+    <p>
+      This is the same image as the one on the left, except we have applied some transformations to it so that the objects within appear undistorted (as they are supposed to be). A few things were needed to undistort the image.
+    </p>
+    <ol>
+      <li>
+        The camera matrix and the distortion coefficient matrix of the Duckiebot's camera.
+      </li>
+      <li>
+        The OpenCV library.
+      </li>
+    </ol>
+    <p>
+      We obtained the camera matrix and the distortion coefficient matrix after we performed intrinsic calibration with our Duckiebot's camera. At a high level, undistorting images is essentially unbending the images by bending them in the opposite direction.
+    </p>
+    <p>
+      We can now perform vision-based operations (e.g. lane detection and lane following) on the undistorted images because they better reflect the real world.
+    </p>
+  </article>
+</section>
+
+<section class="ex3-section">
+  <article class="ex3-article">
+    <img src="{{ base_path }}/images/ex3-blue-detection.png" alt="An image with a detected blue line" style="display: block; margin-left: auto; margin-right: auto; float: none;">
+  </article>
+  <article class="ex3-article">
+    <h1>Blue Line Detection</h1>
+    <p>
+      This image shows the Duckiebot detecting a blue line in the undistorted image. We specified a range of blue colors that our Duckiebot can detect by defining a range of HSV values. The HSV range cannot be too large, as we don't want to detect things we don't care about (e.g. the blue shade on the windows in the background). On the flip side, the HSV range must be large enough to cope with slight variations in the color due to environmental factors (e.g. one of the ceiling lights broke, causing the room to be slightly darker than normal, or someone is walking by and casts their shade on the line.)
+    </p>
+    <p>
+      The blue rectangle box in the image shows the detected contour of the line, and the number below the box shows the estimated length of the line. Both the contour detection and length estimation were done on the undistorted image. The method we used to translate distance in pixels to distance in the world frame came from ChatGPT, which we documented in our code.
+    </p>
+    <p>
+      The actual length of the blue line was measured to be approximately 8 inches (about 20 cm). Our value slightly underestimated the length of the line significantly. We hypothesize the cause to be improperly calibrated intrinsic and extrinsic parameters (for we experienced internet delays during the calibration process), and/or the distance estimation method given by ChatGPT is incorrect.
+    </p>
+  </article>
+</section>
+
+<section class="ex3-section">
+  <article class="ex3-article">
+    <img src="{{ base_path }}/images/ex3-red-detection.png" alt="An image with a detected red line" style="display: block; margin-left: auto; margin-right: auto; float: none;">
+  </article>
+  <article class="ex3-article">
+    <h1>Red Line Detection</h1>
+    <p>
+      This image shows the Duckiebot detecting a red line in the undistorted image. Similar to the blue line detection, we also defined a range of HSV values to allow the Duckiebot to detect a range of the color red. We use the same methods as the blue line detection for the red line, detect its contours, and estimate its length. Same as in blue line detection, the length estimation is a slight underestimate of the actual length of the red line in the real world (most likely due to the same reasons explained above).
+    </p>
+  </article>
+</section>
+
+<section class="ex3-section">
+  <article class="ex3-article">
+    <img src="{{ base_path }}/images/ex3-green-detection.png" alt="An image with a detected green line" style="display: block; margin-left: auto; margin-right: auto; float: none;">
+  </article>
+  <article class="ex3-article">
+    <h1>Green Line Detection</h1>
+    <p>
+      The same as blue line and red line detection, but for green lines.
+    </p>
+  </article>
+</section>
+
+<section class="ex3-section">
+  <iframe width="560" height="315" src="https://youtube.com/embed/_ZeeCFDAQAY?si=teF_LCbSKMTgktcK" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+  <article class="ex3-article">
+    <h1>Red Line Behavior</h1>
+    <p>
+      The video on the left shows our Duckiebot driving up to a red line, stopping for 4 seconds, and driving straight 50 cm. We placed our Duckiebot almost a meter away from the red line, and the Duckiebot stopped quite far away from the red line (farther than we expected, anyway).
+    </p>
+    <p>
+      In retrospect, we should have also gauged the distance between our Duckiebot and the red line, so we can stop closer to the red line, and not stop immediately after detecting it. One way to estimate the distance between the line and our Duckiebot is to measure how far the contour box is from the bottom of the screen.
+    </p>
+  </article>
+</section>
+
+<section class="ex3-section">
+  <iframe width="560" height="315" src="https://youtube.com/embed/MAM0RboNfp0?si=7qDUO4_QkwnJGN-g" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+  <article class="ex3-article">
+    <h1>Blue Line Behavior</h1>
+    <p>
+      The video on the left shows our Duckiebot driving up to a blue line, stopping for 4 seconds, turning the LEDs on the right side to green, and driving in a curve 90 degrees to the right. Similar to the red line behavior, we should have made our Duckiebot stop closer to the blue line.
+    </p>
+  </article>
+</section>
+
+<section class="ex3-section">
+  <iframe width="560" height="315" src="https://youtube.com/embed/qbx9IlsrYIQ?si=iyUFdzlmZ2-_YKxo" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+  <article class="ex3-article">
+    <h1>Green Line Behavior</h1>
+    <p>
+      The video on the left shows our Duckiebot driving up to a green line, stopping for 4 seconds, turning the LEDs on the left side to green, and driving in a curve 90 degrees to the left. Similar to the above, our Duckiebot is stopping too far from the green line; our Duckiebot did not even cross the green line.
+    </p>
+  </article>
+</section>
+
+<h1>Integrating computer vision, LED control, and wheel movement</h1>
+<p>
+  As outlined in the assignment description, it is clear that the three functionalities happen sequentially: detect the color of the line, change the LED (if necessary), and drive accordingly. A naive approach to integrating the three functions would be to implement them all into a single node and execute them one after another. Executing all three functions unconditionally in every iteration of the control loop is inefficient, and causes significant delays. When we first tested this approach, it took Duckiebot approximately 3 seconds to process one image frame. This is detrimental to the performance of our Duckiebot, as the camera is capturing frames at a much higher rate.
+</p>
+
+<h2>Improving the integration</h2>
+<p>
+  As an improvement, we separated computer vision, LED control, and wheel movement into two nodes: a regular node for computer vision, and a service node that provides LED control and wheel movement. The computer vision node detects the line color and sends the detected color to the service node where the service node executes the corresponding line behavior.  This increases the modularity of our code but has not solved the delay issues.
+</p>
+
+<h2>Optimizations and handling delays</h2>
+<p>
+  To keep up with the camera frequency, we need to process information much faster. One way to achieve this is to not do any processing if nothing interesting is happening. To elaborate, the assignment description requires us to start at least 30 cm away from the line, and drive straight towards the line. Before our Duckiebot gets close enough to detect the color of the line, it reports "Color detected: None", and issues wheel commands to drive straight forward. This was done unconditionally in every iteration of the control loop. To prevent this unconditional execution in every iteration, we moved the publish of the wheel commands out of the loop. That is, we only issue the drive straight forward command once before the loop. The control loop now only checks if it detects any colors, instead of checking detected colors and issuing (rather unnecessary) wheel commands.  This effectively reduces control delay.
+</p>
+<p>
+  Another optimization we did was to make the Duckiebot drive slower, at 0.3 m/s. This reduces the errors the Duckiebot makes in case of a network delay, especially when running the nodes on a host machine, rather than natively on the Duckiebot.
+</p>
+
+<h2>Impacts of camera frequency and control update rate</h2>
+<p>
+  We used to think <code>rate = rospy.Rate(3)</code> and <code>rate.sleep()</code> would throttle both the execution rate of the control loop and the frequency of the camera. We were wrong, those pairs of instructions only throttle the execution rate of the control loop. Although we have not confirmed this, we hypothesize there is a <code>rostopic</code> or <code>rosparam</code> that lets us adjust the camera's frame rate (much like how we performed wheel calibration).
+</p>
+<p>
+  By putting <code>rate.sleep()</code> in our control loop, we throttled the execution rate of the control loop without throttling the camera's frame rate. As a result, the Duckiebot was not able to process information fast enough to keep up with the speed at which the camera was generating information. In other words, the Duckiebot was processing frames that should have been processed earlier. Our solution to this problem was to remove <code>rate.sleep()</code> and let both run at full speed.
+</p>
+<p>
+  A better solution is to throttle both the frame rate of the camera and the execution rate of the control loop.  Not only will the Duckiebot use less power in this case, but we can tune the sensitivity of the Duckiebot to the environment via this method (a higher frame rate means we can capture the change in the environment at a higher granularity).
+</p>
+
+<section class="ex3-section">
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/2gf-UekQc7s?si=knVmgByCpLLxKe17" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+  <article class="ex3-article">
+    <h1>Driving 1.5 meters using the P controller</h1>
+    <p>
+      The video on the left shows our duckiebot driving forward 1.5 meters by centering itself between the dotted yellow line and white line using the P controller. Our Duckiebot drove in a parabola (almost crossing the outer edge of the dotted yellow line) because we set the P gain factor to a very small value.
+    </p>
+  </article>
+</section>
+
+<section class="ex3-section">
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/Henhj0Q2sDE?si=3KFK9p9l9msP3x_l" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+  <article class="ex3-article">
+    <h1>Driving 1.5 meters using the PD controller</h1>
+    <p>
+      The video on the left shows our duckiebot driving forward 1.5 meters by centering itself between the dotted yellow line and white line using the PD controller. Our Duckiebot drove in a 'S', indicating that our D gain factor might be a little too aggressive.
+    </p>
+  </article>
+</section>
+
+<section class="ex3-section">
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/qcbfBz19GNA?si=Feu-CWW1s-q1UN2k" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+  <article class="ex3-article">
+    <h1>Driving 1.5 meters using the PID controller</h1>
+    <p>
+      The video on the left shows our duckiebot driving forward 1.5 meters by centering itself between the dotted yellow line and white line using the PID controller. Our Duckiebot drove in almost a straight line, indicating that the integral term is very effective as an addition to the proportional and derivative terms. This also demonstrates the effectiveness of the integral term in mitigating steady-rate errors, which our Duckiebot does have (even after calibration, our Duckiebot consistently deviates to the right, as evident in the Red Line Behaviour and the Blue Line Behaviour videos above).
+    </p>
+  </article>
+</section>
+
+<h1>Error Calculation</h1>
+<p>
+  We will describe, at a high level, how we defined our target and calculated our errors below. Images were edited with Google Drawing for illustration purposes. Note that the description below is for driving on the right side of the center dotted yellow line. The calculations for the English driving system are very similar, where the roles of the white and yellow lines are swapped.
+</p>
+
+<section class="ex3-section">
+  <article class="ex3-article">
+    <img src="{{ base_path }}/images/ex3-line-detection.jpg" alt="Detecting the white and yellow lines for error calculation" style="display: block; margin-left: auto; margin-right: auto; float: none;">
+  </article>
+  <article class="ex3-article">
+    <h1>1. Detect lines</h1>
+    <p>
+      The first step is to detect the white and yellow lines captured by the Duckiebot's camera. We will also define an imaginary center line, as shown in the image on the left.
+    </p>
+    <p>
+      It is entirely possible that either the white or the yellow is not captured (e.g. during a turn), in which case we will also assume that they exist at the very edge of the screen:
+    </p>
+    <ul>
+      <li>
+        For the yellow line, we will imagine it on the very left side of the screen if we cannot detect it on the captured image.
+      </li>
+      <li>
+        For the white line, we will imagine it on the very right side of the screen if we cannot detect it on the captured image.
+      </li>
+    </ul>
+  </article>
+</section>
+
+<section class="ex3-section">
+  <article class="ex3-article">
+    <img src="{{ base_path }}/images/ex3-take-center-line.jpg" alt="Representing each contour box with their vertical center line" style="display: block; margin-left: auto; margin-right: auto; float: none;">
+  </article>
+  <article class="ex3-article">
+    <h1>2. Calculate center lines</h1>
+    <p>
+      We represent the contour boxes drawn on the detected lines using their vertical center line (along the x-axis). If there are multiple contour boxes of the same color (e.g. the dotted yellow lines), we keep the one closest to the imaginary center line that also does not cross the center line. For driving on the right side of the dotted yellow line:
+    </p>
+    <ul>
+      <li>
+        The dotted yellow line should always be on the left side of the imaginary center line; it must have a smaller pixel value than the imaginary center line.
+      </li>
+      <li>
+        The white line should always be on the right side of the imaginary center line; it must have a larger pixel value than the imaginary center line.
+      </li>
+    </ul>
+  </article>
+</section>
+
+<section class="ex3-section">
+  <article class="ex3-article">
+    <img src="{{ base_path }}/images/ex3-target-definition.jpg" alt="Representing each contour box with their vertical center line" style="display: block; margin-left: auto; margin-right: auto; float: none;">
+  </article>
+  <article class="ex3-article">
+    <h1>3. Target and error definition</h1>
+    <p>
+      Let <code>x</code> be the distance between the yellow line and the imaginary center line. Let <code>y</code> be the distance between the white line and the imaginary center line. Then our error is defined as <code>E = x - y</code>; our target is <code>E = 0</code>, or, equivalently, <code>x = y</code>.
+    </p>
+  </article>
+</section>
+
+<section class="ex3-section">
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/0lVG08vemGI?si=fwwl9VJ_FmtwQy5U" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+  <article class="ex3-article">
+    <h1>Lane following using the P controller</h1>
+    <p>
+      The video on the left shows our duckiebot going around the oval track on the right side of the road by centering itself between the dotted yellow lane and white lane using the P controller.
+    </p>
+    <p>
+      Lane following using the P controller worked extremely well. If the control loop has a very large error, then the P-term would also be large, sending aggressive commands to the wheels. We had this problem before, where we calculated the error in pixels and sent it directly to the wheels. The pixel errors are in the order of tens and hundreds, whereas the wheel speeds are in the order of one-tenth of a meter per second. Consequently, it would cause one wheel to lock, and the other to turn at max speed. After recognizing this mistake, we converted the error from pixels to meters.
+    </p>
+    <p>
+      Although we do not have the video for lane following using the PD controller, we did try it and did not notice any major differences compared to using the P controller. This is expected because while the derivative helps correct errors due to momentum, we have negligible momentum in our environment.
+    </p>
+  </article>
+</section>
+
+<section class="ex3-section">
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/Og9jhaVjObE?si=Hqfr-tILiHfinU4m" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+  <article class="ex3-article">
+    <h1>Lane following using the PID controller</h1>
+    <p>
+      The video on the left shows our duckiebot going around the oval track on the right side of the road by centering itself between the dotted yellow lane and white lane using the PID controller. Compared to lane following using the P controller, we cannot spot any major differences in performance and behavior.
+    </p>
+    <p>
+      Theoretically, however, the integral should help with our control because our Duckiebot consistently deviates to the right.
+    </p>
+  </article>
+</section>
+
+<section class="ex3-section">
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/Kra2Mzr4xEk?si=DWT-wNfZweUGY_zi" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+  <article class="ex3-article">
+    <h1>BONUS: English Driving System</h1>
+    <p>
+      The video on the left shows our duckiebot going around the oval track on the left side of the road by centering itself between the dotted yellow lane and white lane.
+    </p>
+  </article>
+</section>
+
+<h1>Reflection</h1>
+
+<h1>References</h1>
+<p>
+  <a href="https://docs.duckietown.com/daffy/opmanual-duckiebot/intro.html" target="_blank">
+    https://docs.duckietown.com/daffy/opmanual-duckiebot/intro.html
+  </a>
+  <br >
+  <a href="https://github.com/duckietown/dt-core/blob/daffy/packages/duckietown_demos/launch/multi_lane_following.launch" target="_blank">
+    https://github.com/duckietown/dt-core/blob/daffy/packages/duckietown_demos/launch/multi_lane_following.launch
+  </a>
+</p>
+<p>
+  Special thanks to Yushu Zhang and Anthony Chen, who were my partners for this exercise.
+</p>
