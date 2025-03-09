@@ -175,19 +175,19 @@ date: 2025-02-11
 <p>
   <b>Note: The bag files were recorded separately from the videos.</b>
 </p>
-<img src="{{ base_path }}/images/ex2-90turn-plot.png" alt="The trajectory plot of turning 90 degrees on the spot">
+<img src="{{ base_path }}/images/ex2-90turn-plot.png" alt="The trajectory plot of turning 90 degrees on the spot" style="display: block; margin-left: auto; margin-right: auto; float: none;">
 <p>
   The figure above shows the robot's trajectory performing an on-spot 90-degree turn on-spot. The trajectory is just a single dot on (0, 0) because we programmed our robot to turn by driving the left and right wheels in opposite directions, but at the same speed. The center of rotation, then, is halfway between the wheels.
 </p>
-<img src="{{ base_path }}/images/ex2-straightline-plot.png" alt="The trajectory plot of driving back and forth in a straight line">
+<img src="{{ base_path }}/images/ex2-straightline-plot.png" alt="The trajectory plot of driving back and forth in a straight line" style="display: block; margin-left: auto; margin-right: auto; float: none;">
 <p>
   The figure above shows the robot's trajectory driving 1.25 meters (125 cm) forward, and then reversing 1.25 meters (125 cm) backwards, both in a straight line. There is no movement in the y-axis because the robot was driving in a straight line. We understand that it is extremely unlikely that the robot will return to the same spot as where it started, hence the slight difference in the start and the endpoint. There is, however, a big difference between the distance travelled as shown on the plot, and the distance the robot was programmed to travel (less than 1 m versus 1.25 m). We suspect the cause to be related to the wheel encoders.
 </p>
-<img src="{{ base_path }}/images/ex2-d-shape-plot.png" alt="The trajectory plot of driving on the D-shaped track">
+<img src="{{ base_path }}/images/ex2-d-shape-plot.png" alt="The trajectory plot of driving on the D-shaped track" style="display: block; margin-left: auto; margin-right: auto; float: none;">
 <p>
   The figure above shows the robot's trajectory driving the D-shaped track. Only the first horizontal trajectory is accurate because we made a mistake in publishing the commands to turn in a curve to the robot. During the curve turning, we only published one message to the robot; the message instructs the robot to drive the left wheel 2.5 times faster than the right wheel. Empirically, the robot was able to turn in a curve, and it took about 1 second. However, it means we only have one data point for the entire turn; the data resolution was too low. Since we used forward kinematics, it resulted in an over-accumulation of the change in the angle in the robot's frame, and hence also in the initial frame, resulting in the weird trajectory as shown in the figure.
 </p>
-<img src="{{ base_path }}/images/ex2-reverse-park-plot.png" alt="The trajectory plot of reverse parking">
+<img src="{{ base_path }}/images/ex2-reverse-park-plot.png" alt="The trajectory plot of reverse parking" style="display: block; margin-left: auto; margin-right: auto; float: none;">
 <p>
   The figure above shows the robot's trajectory performing the reverse parking; we programmed the robot to drive 20 cm forward, then turn 90 degrees clockwise, and finally reverse straight for 10 cm. Both the forward and reverse commands were only issued once, causing a low resolution in the data points, and ultimately an over-accumulation of the distance in the forward kinematics calculations. The plot also shows the robot turned slightly less than 90 degrees. We are unsure why, but we suspect the cause to be related to the wheel encoders.
 </p>
