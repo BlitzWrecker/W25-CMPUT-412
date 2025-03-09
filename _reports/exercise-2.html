@@ -83,6 +83,9 @@ date: 2025-02-11
 
 <h1>Publisher-Subscriber</h1>
 <img src="{{ base_path }}/images/pub-sub.png" alt="Image of a demo publisher-subscriber model in action">
+<p>
+  This image captures the communication between a custom ROS publisher and subscriber node. The publisher node sends messages to the topic "/csc22928/custom_topic", while the subscriber node receives and processes this data. In this example, the publisher transmits a string message (e.g., "Hello from csc22928!"), and the subscriber logs the received content to the terminal. We developed two nodes: one to publish data and another to subscribe, demonstrating ROS's publish-subscribe architecture. This exercise reinforced foundational concepts such as topic naming, message types, and node initialization. The screenshot validates successful communication, showing real-time data exchange between nodes, a critical skill for building modular robotic systems with ROS.
+</p>
 
 <h1>Annotated Grayscale Image</h1>
 <img src="{{ base_path }}/images/annotated-grayscale.png" alt="An annotated grayscale image">
@@ -107,7 +110,8 @@ date: 2025-02-11
   <li>uneven wear on the motors,</li>
   <li>the rubber tires being deformed,</li>
   <li>the robot was simply not placed perfectly parallel to the yellow line before starting the program, and</li>
-  <li>we did our inverse-kinematics calculations incorrectly.</li>
+  <li>As per a discussion with Adam, the wheels of the robot may slip; the robot did not go anywhere, but a tick was accumulated in the wheel encoders, and</li>
+  <li>Incorrect calculations</li>
 </ol>
 <p>
   We noticed that when the Duckiebot was crossing the second mat connector while driving forward, there was a slight,
@@ -115,14 +119,37 @@ date: 2025-02-11
   driving backward. We should have had the robot gradually slow down to a stop, rather than coming to a sudden stop and
   immediately started reversing because the sudden jerk could have thrown the robot off its original track.
 </p>
+<ul>
+  <li>
+    Why is there a difference between the actual and desired location?
+    <ul style="list-style-type: none">
+      <li>
+        Besides the reasons listed above including the right drift, the temporary loss of traction also played a role. When the Duckiebot takes off from stationary, whether moving forward or backward, we notice that the wheels initially struggle for traction (burnout) and spin more than the actual distance travelled. This results in a slightly shorter distance travelled.
+      </li>
+    </ul>
+  </li>
+  <li>
+    What speed did you use?
+    <ul style="list-style-type: none">
+      <li>
+        We used 0.5.
+      </li>
+    </ul>
+  </li>
+  <li>
+    What happens when you increase or decrease the speed?
+    <ul style="list-style-type: none">
+      <li>
+        When we increase the speed, the actual position of the duckiebot deviates more from the desired location. This is most likely due to more right drift and temporary loss of traction as we give the wheels more power. The opposite happens when we decrease the speed: the actual position gets closer to the desired position as we experience less drift and traction loss.
+      </li>
+    </ul>
+  </li>
+</ul>
 
 <h1>90&deg; Turn</h1>
 <iframe src="https://youtube.com/embed/VZFHjZKBg1U?si=DWImesDI7e9KG9lk" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 <p>
-  This video shows the Duckiebot turning 90&deg; clockwise, then 90&deg; counter-clockwise, on the spot. Our approach
-  for rotating on the spot was to turn both wheels in opposite directions, as opposed turning only one wheel and keeping
-  the other stationary. We recognize that turning two wheels at the same time is harder to control than turning one
-  wheel, and is more prone to deviations. Deviations in the rotation can be caused by incorrect kinematics calculations.
+  This video shows the Duckiebot turning 90 degrees clockwise, then 90 degrees counter-clockwise, on the spot. Our approach for rotating on the spot was to turn both wheels in opposite directions, as opposed turning only one wheel and keeping the other stationary. We recognize that turning two wheels at the same time is harder to control than turning one wheel, and is more prone to deviations. Deviations in the rotation can be caused by incorrect kinematics calculations. Similar to the previous "forward-backward" task, this deviation can also be caused by the temporary loss of traction when initiating rotation from stationary. We mostly fixed this problem by reducing the speed of the wheels.
 </p>
 
 <h1>Driving in a 'D' Shape</h1>
@@ -131,6 +158,96 @@ date: 2025-02-11
   This video shows our Duckiebot driving on the D-shaped track. The LEDs on the Duckiebot indicates its state. Red means
   the robot is at rest; Blue means the robot is driving in a D shape.
 </p>
+
+<h1>Reverse Parking</h1>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/8hik0vh0ReQ?si=OAx-eTcC0uRK7rg6" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+<p>
+  This video shows our duckiebot performing a reverse parking between two other duckiebots. It manages to park in the stall without hitting the other two duckiebots. We leveraged duckiebot's strength: being able to turn its two wheels independently. This allows us to rotate the duckiebot 90 degrees in place, something our cars cannot do.
+</p>
+
+<h1>Plotting the trajectory</h1>
+<p>
+  The bag files were recorded using the rosbag utility; all topics were recorded, but we only read the ones that would help us plot the trajectory. Specifically, we used the message stream from the "/csc22928/wheels_driver_node/wheels_cmd_executed" topic. We extracted the velocities of the left and right motors from the messages and calculated the (x, y) coordinates using the forward kinematics calculations we learned in class. Our plotting script is written in Python, and we plot using the matplotlib module.
+</p>
+<p>
+  Monta suggested that we were doing things the hard way. The implementation of our code is error-prone, and there could be latent numerical instabilities in the calculations. <br>
+</p>
+<p>
+  <b>Note: The bag files were recorded separately from the videos.</b>
+</p>
+<img src="{{ base_path }}/images/ex2-90turn-plot.png" alt="The trajectory plot of turning 90 degrees on the spot">
+<p>
+  The figure above shows the robot's trajectory performing an on-spot 90-degree turn on-spot. The trajectory is just a single dot on (0, 0) because we programmed our robot to turn by driving the left and right wheels in opposite directions, but at the same speed. The center of rotation, then, is halfway between the wheels.
+</p>
+<img src="{{ base_path }}/images/ex2-straightline-plot.png" alt="The trajectory plot of driving back and forth in a straight line">
+<p>
+  The figure above shows the robot's trajectory driving 1.25 meters (125 cm) forward, and then reversing 1.25 meters (125 cm) backwards, both in a straight line. There is no movement in the y-axis because the robot was driving in a straight line. We understand that it is extremely unlikely that the robot will return to the same spot as where it started, hence the slight difference in the start and the endpoint. There is, however, a big difference between the distance travelled as shown on the plot, and the distance the robot was programmed to travel (less than 1 m versus 1.25 m). We suspect the cause to be related to the wheel encoders.
+</p>
+<img src="{{ base_path }}/images/ex2-d-shape-plot.png" alt="The trajectory plot of driving on the D-shaped track">
+<p>
+  The figure above shows the robot's trajectory driving the D-shaped track. Only the first horizontal trajectory is accurate because we made a mistake in publishing the commands to turn in a curve to the robot. During the curve turning, we only published one message to the robot; the message instructs the robot to drive the left wheel 2.5 times faster than the right wheel. Empirically, the robot was able to turn in a curve, and it took about 1 second. However, it means we only have one data point for the entire turn; the data resolution was too low. Since we used forward kinematics, it resulted in an over-accumulation of the change in the angle in the robot's frame, and hence also in the initial frame, resulting in the weird trajectory as shown in the figure.
+</p>
+<img src="{{ base_path }}/images/ex2-reverse-park-plot.png" alt="The trajectory plot of reverse parking">
+<p>
+  The figure above shows the robot's trajectory performing the reverse parking; we programmed the robot to drive 20 cm forward, then turn 90 degrees clockwise, and finally reverse straight for 10 cm. Both the forward and reverse commands were only issued once, causing a low resolution in the data points, and ultimately an over-accumulation of the distance in the forward kinematics calculations. The plot also shows the robot turned slightly less than 90 degrees. We are unsure why, but we suspect the cause to be related to the wheel encoders.
+</p>
+
+<h1>Reflection</h1>
+<h2>What we implemented</h2>
+<p>
+  We developed ROS nodes to control a Duckiebot, including image processing (converting RGB images to grayscale and annotating them), moving the robot forward/backward, rotating it on the spot, and plotting its trajectory on a D-shaped track. We used rosbag for data recording.
+</p>
+
+<h2>How it works</h2>
+<ol>
+  <li>
+    <b>Image Processing</b>: A node subscribed to the camera topic, processed images using OpenCV, and published annotated grayscale images to a new topic.
+  </li>
+  <li>
+    <b>Movement</b>: A node controlled the Duckiebot to drive forward and backward 1.25 meters, using wheel speed calculations.
+  </li>
+  <li>
+    <b>Rotation</b>: Another node rotated the Duckiebot 90 degrees clockwise and counterclockwise by turning the wheels in opposite directions.
+  </li>
+  <li>
+    <b>Trajectory Plotting</b>: We recorded the robot's position data using rosbag and plotted its path on a D-shaped track.
+  </li>
+</ol>
+
+<h2>What challenges we came across</h2>
+<ol>
+  <li>
+    <b>Drift and Traction Loss</b>: The Duckiebot consistently drifted to the right during movement and experienced traction loss when starting from rest, causing deviations from the desired path.
+  </li>
+  <li>
+    <b>Compounding Inaccuracy</b>: The right drift in the first straight section of "D" caused deviation in the later sections even if the duckiebot drove correctly for those later sections. When we attempt to adjust the parameters for doing the arc for example, we might be compensating for a deviation in the earlier straight section. This results in back and forth adjustments that don't solve the root cause of the problem.
+  </li>
+  <li>
+    <b>Math vs Reality</b>: The mathematical model of the arc section of "D" did not translate well in reality.
+  </li>
+  <li>
+    <b>Rotation Inaccuracy</b>: Rotating the robot by turning both wheels in opposite directions was harder to control, leading to deviations in the rotation angle.
+  </li>
+</ol>
+
+<h2>How we overcame the challenges</h2>
+<ol>
+  <li>
+    <b>Reducing speed</b>: We lowered the wheel speed to minimize drift and traction loss, improving stability and accuracy.
+  </li>
+  <li>
+    <b>Fixing One at a Time</b>: Instead of fixing all the parameters all at once, we tune the parameters one section at a time. For example, we only attempt to tune the parameters for turning when our straight section is satisfactory.
+  </li>
+  <li>
+    <b>Trial and Error</b>: We used trial and error to adjust for the inside wheel/outside wheel velocity ratio when tracing the arc section of "D". This performed better than the pure mathematical model method
+  </li>
+  <li>
+    <b>Turning Only the Outside Wheel</b>: When we changed to turning only the outside wheel, the stability of our turns was improved at the expense of turning speed
+  </li>
+  <li>
+    <b>Using rosbag for Analysis</b>: By recording and analyzing the Duckiebot's movement data, we gained insights into its behaviour and refined our approach.
+  </li>
+</ol>
 
 <h1>References</h1>
 <p>
