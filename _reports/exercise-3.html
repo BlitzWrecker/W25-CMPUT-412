@@ -302,6 +302,70 @@ date: 2025-03-09
 </section>
 
 <h1>Reflection</h1>
+<h2>What we implemented</h2>
+<p>
+  In this exercise, we explored computer vision techniques and controllers to enable a robot to perceive its environment and autonomously follow a lane. We worked with camera intrinsic parameters to undistort images, implemented color detection, lane detection, and integrated these perception techniques with different control strategies. By combining vision-based perception with control mechanisms, we enabled the robot to navigate within a designated lane without direct human intervention.
+</p>
+
+<h2>How it works</h2>
+<ol>
+  <li>
+    <b>Image Undistortion</b>: We corrected distorted images using camera intrinsic parameters, improving the accuracy of our perception pipeline.
+  </li>
+  <li>
+    <b>Color Detection</b>: We implemented a color segmentation technique to identify specific markers or lane boundaries.
+  </li>
+  <li>
+    <b>Lane Detection</b>: Using edge detection and filtering techniques, we extracted lane features from the processed images.
+  </li>
+  <li>
+    <b>Control Mechanisms</b>: We experimented with different controllers, tuning parameters to achieve stable lane following behavior.
+  </li>
+  <li>
+    <b>Integration</b>: The processed vision data was used as input for the control system, allowing the robot to adjust its movement in real-time.
+  </li>
+</ol>
+
+<h2>What challenges we came across</h2>
+<ol>
+  <li>
+    <b>Noisy Image Data</b>: Variations in lighting and reflections affected the accuracy of our color and lane detection.
+  </li>
+  <li>
+    <b>Delay in Perception-Action Loop</b>: Processing image data introduced latency, causing the robot to react slower than expected.
+  </li>
+  <li>
+    <b>Controller Tuning</b>: Fine-tuning the control parameters to balance responsiveness and stability proved to be challenging.
+  </li>
+  <li>
+    <b>Lane Deviation</b>: The robot occasionally drifted away from the lane due to inaccurate perception or improper control tuning.
+  </li>
+  <li>
+    <b>Environmental Distractions</b>: The presence of nearby objects, such as a white desk and an adjacent straight-line road, confused the robot’s detection system by introducing unintended lane markers.
+  </li>
+</ol>
+
+<h2>How we overcame the challenges</h2>
+<ol>
+  <li>
+    <b>Preprocessing Improvements</b>: We applied filtering techniques to reduce noise and enhance relevant features in the image.
+  </li>
+  <li>
+    <b>Optimizing Execution Time</b>: We optimized the perception pipeline to reduce processing latency and improve responsiveness.
+  </li>
+  <li>
+    <b>Incremental Controller Tuning</b>: Instead of adjusting all parameters at once, we refined them step by step, testing each change systematically.
+  </li>
+  <li>
+    <b>Adaptive Control Strategy</b>: We experimented with different control strategies and selected the one that provided the best trade-off between stability and responsiveness.
+  </li>
+  <li>
+    <b>Testing Under Different Conditions</b>: We tested the system under varying lighting conditions to make it more robust to environmental changes.
+  </li>
+  <li>
+    <b>Improving the Environment</b>: We rearranged and cleaned the tiles to provide the robot with a clearer path. By removing distractions such as the white desk and the extra straight-line road, we improved the robot’s ability to correctly detect the intended lane.
+  </li>
+</ol>
 
 <h1>References</h1>
 <p>
