@@ -1,10 +1,10 @@
 <package>
-  <name>computer_vision</name>
+  <name>ex4</name>
   <version>0.0.1</version>
   <description>
   My first Catkin package in Duckietown.
   </description>
-  <maintainer email="zhaoyu5@ualberta.ca">Anthony Chen</maintainer>
+  <maintainer email="zhaoyu4@ualberta.ca">Zhaoyu Li</maintainer>
   <license>None</license>
 
   <buildtool_depend>catkin</buildtool_depend>

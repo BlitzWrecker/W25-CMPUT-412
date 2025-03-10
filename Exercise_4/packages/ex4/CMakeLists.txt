@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(computer_vision)
+project(ex4)
 
 find_package(catkin REQUIRED COMPONENTS
   rospy
@@ -10,7 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## Declare the service files to be processed
 add_service_files(
   FILES
-  LaneBehaviorCMD.srv  # Your service file
+  NavigateCMD.srv  # Your service file
 )
 
 ## Generate messages
