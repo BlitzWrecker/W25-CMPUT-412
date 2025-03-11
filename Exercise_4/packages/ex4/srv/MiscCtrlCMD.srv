@@ -1,0 +1,5 @@
+string cmd
+uint8 value
+---
+bool state
+string reason

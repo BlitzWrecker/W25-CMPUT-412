@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_service_files(
   FILES
   NavigateCMD.srv  # Your service file
+  MiscCtrlCMD.srv
 )
 
 ## Generate messages
