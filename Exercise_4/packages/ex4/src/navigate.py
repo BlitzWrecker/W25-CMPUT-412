@@ -41,6 +41,7 @@ class NavigationControl(DTROS):
 
     # add other functions as needed
 
+
 if __name__ == '__main__':
     node = NavigationControl(node_name='navigation_control_node')
     rospy.spin()
