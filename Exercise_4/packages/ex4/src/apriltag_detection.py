@@ -10,7 +10,7 @@ from sensor_msgs.msg import CompressedImage, CameraInfo, Image
 from cv_bridge import CvBridge
 from dt_apriltags import Detector
 from ex4.srv import MiscCtrlCMD, MiscCtrlCMDResponse
-from std_msgs.msg import Int32  # Import the Int32 message type for the tag ID
+
 
 class ApriltagNode(DTROS):
     def __init__(self, node_name):
@@ -38,10 +38,7 @@ class ApriltagNode(DTROS):
         )
 
         # Publish augmented image
-        self.augmented_img_pub = rospy.Publisher(f"/{self._vehicle_name}/apriltag_processed_image", Image, queue_size=10)
-
-        # Publish tag ID to a custom topic
-        self.tag_id_pub = rospy.Publisher(f"/{self._vehicle_name}/detected_tag_id", Int32, queue_size=1)
+        self.augmented_img_pub = rospy.Publisher(f"/{self._vehicle_name}/processed_image", Image, queue_size=10)
 
         # Set the new camera framerate to 3
         self.new_framerate = 3
@@ -82,18 +79,7 @@ class ApriltagNode(DTROS):
         # Find the closest tag
         closest_tag = self.find_closest_tag(tags)
 
-        # Publish the tag ID to the custom topic
-        if closest_tag is not None:
-            tag_id_msg = Int32()
-            tag_id_msg.data = closest_tag.tag_id
-            self.tag_id_pub.publish(tag_id_msg)
-        else:
-            # Publish -1 if no tag is detected
-            tag_id_msg = Int32()
-            tag_id_msg.data = -1
-            self.tag_id_pub.publish(tag_id_msg)
-
-        # Publish to LED
+        # Update LED color only if a new tag is detected
         if closest_tag is None:
             tag_id = -1
         else:
@@ -175,6 +161,7 @@ class ApriltagNode(DTROS):
             )
             rospy.loginfo(tag.tag_id)
         return image
+
 
 if __name__ == '__main__':
     # Create the node

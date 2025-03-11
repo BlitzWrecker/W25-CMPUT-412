@@ -84,7 +84,7 @@ class LaneFollowingNode(DTROS):
 
         # Red line detection cooldown
         self.stopped_for_red = False  # Flag to track if the bot has already stopped for the red line
-        self.red_line_cooldown = 2.0  # Cooldown time in seconds (adjust as needed)
+        self.red_line_cooldown = 4.0  # Cooldown time in seconds (adjust as needed)
         self.last_red_line_time = 0.0  # Timestamp of the last red line detection
 
     def tag_id_callback(self, msg):
@@ -124,8 +124,8 @@ class LaneFollowingNode(DTROS):
         return masks
 
     def detect_lane(self, image, masks):
-        colors = {"yellow": (0, 255, 255), "white": (255, 255, 255), "red": (0, 0, 255)}
-        detected_white, detected_yellow, detected_red = False, False, False
+        colors = {"yellow": (0, 255, 255), "white": (255, 255, 255)}
+        detected_white, detected_yellow = False, False
         yellow_max_x = 0
         white_min_x = 1000
 
@@ -134,8 +134,6 @@ class LaneFollowingNode(DTROS):
                 detected_white = True
             elif color_name == "yellow":
                 detected_yellow = True
-            elif color_name == "red":
-                detected_red = True
             else:
                 continue
 
