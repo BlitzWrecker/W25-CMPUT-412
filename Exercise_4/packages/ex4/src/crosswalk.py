@@ -10,6 +10,7 @@ import numpy as np
 from duckietown.dtros import DTROS, NodeType
 from ex4.srv import NavigateCMD
 from sensor_msgs.msg import CompressedImage
+from cv_bridge import CvBridge
 
 class CrossWalkNode(DTROS):
 
@@ -17,6 +18,7 @@ class CrossWalkNode(DTROS):
         super(CrossWalkNode, self).__init__(node_name=node_name, node_type=NodeType.LOCALIZATION)
 
         # add your code here
+        self._vehicle_name = os.environ['VEHICLE_NAME']
 
         # call navigation control node
         self.naviagte_service = None
@@ -26,10 +28,6 @@ class CrossWalkNode(DTROS):
             self.lane_hehavior_service = rospy.ServiceProxy('navigate_service', NavigateCMD)
         except rospy.ROSException:
             self.naviagte_service = None
-
-        # subscribe to camera feed
-        self._camera_topic = f"/{self._vehicle_name}/camera_node/image/compressed"
-        self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback)
 
         # define other variables as needed
         
@@ -66,7 +64,9 @@ class CrossWalkNode(DTROS):
         self.upper_blue = np.array([140, 255, 255])
     
         # Initialize bridge and subscribe to camera feed
-        self._vehicle_name = os.environ['VEHICLE_NAME']
+        self._camera_topic = f"/{self._vehicle_name}/camera_node/image/compressed"
+        self._bridge = CvBridge()
+        self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback)
 
         # Color detection parameters in HSV format
         self.lower_blue = np.array([100, 150, 50])
@@ -76,14 +76,83 @@ class CrossWalkNode(DTROS):
         # change
         self.last_color = None
 
-    def detect_line(self, **kwargs):
-        pass
+        # Set a distance threshhold for detecting lines so we don't detect lines that are too far away
+        self.dist_thresh = 0.1  # 10 cm
+
+    def undistort_image(self, image):
+        return cv2.remap(image, self.map1, self.map2, cv2.INTER_LINEAR)
+    
+    def preprocess_image(self, image):
+        # Downscale the image
+        image = cv2.resize(image, (320, 240))  # Adjust resolution as needed
+        return cv2.GaussianBlur(image, (5, 5), 0)
+    
+    def detect_lane_color(self, image):
+        hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        masks = {
+            "blue": cv2.inRange(hsv_image, self.lower_blue, self.upper_blue),
+        }
+        return masks
+
+    # Asked ChatGPT "how to use extrinsic parameters to calculate distance between two objects in an image"
+    # ChatGPT answered with a very generic computation method using a rotation matrix and a translation vector
+    # Then followed up with "I am working with a duckiebot".
+    # ChatGPT answered with an algorithm using the homography matrx
+    def extrinsic_transform(self, u, v):
+        pixel_coord = np.array([u, v, 1]).reshape(3, 1)
+        world_coord = np.dot(self.homography, pixel_coord)
+        world_coord /= world_coord[2]
+        return world_coord[:2].flatten()
+
+    def calculate_dist(self, l1, l2):
+        return np.linalg.norm(l2 - l1)
+
+    def detect_line(self, image, masks):
+        colors = {"blue": (255, 0, 0)}
+    
+        for color_name, mask in masks.items():
+            masked_color = cv2.bitwise_and(image, image, mask=mask)
+            gray = cv2.cvtColor(masked_color, cv2.COLOR_BGR2GRAY)
+            _, thresh = cv2.threshold(gray, 50, 255, cv2.THRESH_BINARY)
+            contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            contour_dists = []
+    
+            for contour in contours:
+                if cv2.contourArea(contour) > 200:  # Filter small contours
+                    x, y, w, h = cv2.boundingRect(contour)
+                    box_rep = self.extrinsic_transform(x + w //2, y + h)
+
+                    # Estimate the distance of the line from the robot using the distance of the line from the bottom of the screen
+                    dist = self.calculate_dist(box_rep, np.array([x + w //2], image.shape[0]))
+
+                    if (dist <= self.dist_thresh):
+                        contour_dists.append((contour_dists, dist))
+
+
+            # cv2.rectangle(image, (x, y), (x + w, y + h), colors[color_name], 2)
+            # cv2.putText(image, f"{lane_length:.2f} cm", (x, y + h + 10), cv2.FONT_HERSHEY_PLAIN, 1, colors[color_name])
+        return image
 
     def detect_ducks(self, **kwargs):
         pass
 
-    def image_callback(self, **kwargs):
-        pass
+    def image_callback(self, msg):
+        # Convert compressed image to CV2
+        image = self._bridge.compressed_imgmsg_to_cv2(msg)
+    
+        # Undistort image
+        undistorted_image = self.undistort_image(image)
+    
+        # Preprocess image
+        preprocessed_image = self.preprocess_image(undistorted_image)
+    
+        # Detect lanes and colors
+        masks = self.detect_lane_color(preprocessed_image)
+        lane_detected_image, detected_colors = self.detect_line(preprocessed_image.copy(), masks)
+    
+        # Publish processed image (optional)
+        self.pub.publish(self._bridge.cv2_to_imgmsg(lane_detected_image, encoding="bgr8"))
+
 
 if __name__ == '__main__':
     # create the node
