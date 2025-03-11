@@ -34,6 +34,9 @@ class MiscellaneousControl(DTROS):
                        ColorRGBA(r=1, g=1, b=1, a=0.5)]  # white
         self.color_str = ['red', 'blue', 'green', 'white']
 
+        # Store the last set LED color
+        self.last_led_color = None
+
         # Set shutdown callback to restore framerate to the original value
         rospy.on_shutdown(self.on_shutdown)
         
@@ -46,9 +49,16 @@ class MiscellaneousControl(DTROS):
         rospy.loginfo(f"Reset framerate to {self.original_framerate}")
 
     def set_led(self, idx):
-        pattern = LEDPattern()
-        pattern.rgb_vals = [self.colors[idx]] * 5
-        self.led_pub.publish(pattern)
+        # Only update the LED color if it's different from the last set color
+        # rospy.loginfo(idx)
+        if self.color_str[idx] == "white" and self.last_led_color: # if the last color is not None, then do not update to white
+            pass
+        elif self.last_led_color != idx:
+            pattern = LEDPattern()
+            pattern.rgb_vals = [self.colors[idx]] * 5
+            self.led_pub.publish(pattern)
+            self.last_led_color = idx  # Update the last set LED color
+            rospy.loginfo(f"LED color changed to {self.color_str[idx]}")
 
     def callback(self, msg):
         cmd, value = msg.cmd, msg.value
