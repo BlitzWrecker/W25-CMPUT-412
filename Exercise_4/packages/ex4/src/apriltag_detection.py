@@ -46,11 +46,14 @@ class ApriltagNode(DTROS):
         # Publish augmented image
         self.augmented_img_pub = rospy.Publisher(f"/{self._vehicle_name}/processed_image", Image, queue_size=10)
 
-        # Set the new camera framerate to 5
-        self.new_framerate = 5
+        # Set the new camera framerate to 3
+        self.new_framerate = 3
         rospy.wait_for_service("misc_ctrl_srv", timeout=1)
         self.misc_ctrl_srv = rospy.ServiceProxy("misc_ctrl_srv", MiscCtrlCMD)
-        self.misc_ctrl_srv("set_fr", 5)
+        self.misc_ctrl_srv("set_fr", self.new_framerate)
+
+        self.tag_mapping = {21: 0, 133: 1, 94: 2, -1: 3}
+        self.prev_tag = None
 
         rospy.loginfo(f"[{node_name}] Node initialized.")
 
@@ -90,6 +93,15 @@ class ApriltagNode(DTROS):
 
 
         # publish to led
+        if closest_tag is None:
+            tag_id = -1
+        else:
+            tag_id = closest_tag.tag_id
+
+        if tag_id != self.prev_tag:
+            self.misc_ctrl_srv("set_led", self.tag_mapping[tag_id])
+            self.prev_tag = tag_id
+
         # stop the bot accordingly
 
 

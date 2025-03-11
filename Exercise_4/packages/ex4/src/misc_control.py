@@ -13,9 +13,12 @@ class MiscellaneousControl(DTROS):
     def __init__(self, node_name):
         super(MiscellaneousControl, self).__init__(node_name=node_name, node_type=NodeType.CONTROL)
         # add your code here
-        
+
         # robot params
         self._vehicle_name = os.environ['VEHICLE_NAME']
+
+        # LED publisher
+        self.led_pub = rospy.Publisher(f"/{self._vehicle_name}/led_emitter_node/led_pattern", LEDPattern, queue_size=10)
 
         # Param address for the camera framerate
         self._camera_framerate_param = f"/{self._vehicle_name}/camera_node/framerate"
@@ -29,6 +32,7 @@ class MiscellaneousControl(DTROS):
                        ColorRGBA(r=0, g=0, b=1, a=0.5),  # blue
                        ColorRGBA(r=0, g=1, b=0, a=0.5),  # green
                        ColorRGBA(r=1, g=1, b=1, a=0.5)]  # white
+        self.color_str = ['red', 'blue', 'green', 'white']
 
         # Set shutdown callback to restore framerate to the original value
         rospy.on_shutdown(self.on_shutdown)
@@ -40,6 +44,11 @@ class MiscellaneousControl(DTROS):
     def reset_framerate(self):
         rospy.set_param(self._camera_framerate_param, self.original_framerate)
         rospy.loginfo(f"Reset framerate to {self.original_framerate}")
+
+    def set_led(self, idx):
+        pattern = LEDPattern()
+        pattern.rgb_vals = [self.colors[idx]] * 5
+        self.led_pub.publish(pattern)
 
     def callback(self, msg):
         cmd, value = msg.cmd, msg.value
@@ -58,8 +67,16 @@ class MiscellaneousControl(DTROS):
             self.reset_framerate()
             return MiscCtrlCMDResponse(True, f"Successfully reset framerate to {self.original_framerate}")
         
+        elif cmd == self.cmd[2]:
+            if not 0 <= value < len(self.colors):
+                return MiscCtrlCMDResponse(False, "Index of LED color must be between 0 and 3 inclusive.")
+
+            self.set_led(value)
+            return MiscCtrlCMDResponse(True, f"Successfully set LED color to {self.color_str[value]}")
+        
     def on_shutdown(self):
         self.reset_framerate()
+        return MiscCtrlCMDResponse(True, f"Successfully reset framerate to {self.original_framerate}")
 
 
 if __name__ == '__main__':
