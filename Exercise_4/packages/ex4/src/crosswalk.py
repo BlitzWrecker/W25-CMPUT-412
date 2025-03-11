@@ -126,12 +126,20 @@ class CrossWalkNode(DTROS):
                     dist = self.calculate_dist(box_rep, np.array([x + w //2], image.shape[0]))
 
                     if (dist <= self.dist_thresh):
-                        contour_dists.append((contour_dists, dist))
+                        contour_dists.append((dist, x, y, w, h))
 
 
-            # cv2.rectangle(image, (x, y), (x + w, y + h), colors[color_name], 2)
-            # cv2.putText(image, f"{lane_length:.2f} cm", (x, y + h + 10), cv2.FONT_HERSHEY_PLAIN, 1, colors[color_name])
-        return image
+            coutour_dists = sorted(contour_dists, key=lambda x: x[0])
+
+        if len(contour_dists) != 2:
+            return image, False
+
+        for dist, x, y, w, h in coutour_dists:
+            cv2.rectangle(image, (x, y), (x + w, y + h), colors[color_name], 2)
+
+        dist, x, y, _, h = coutour_dists[0]
+        cv2.putText(image, f"Dist: {dist*30:.2f} cm", (x, y + h + 10), cv2.FONT_HERSHEY_PLAIN, 1, colors[color_name])
+        return image, True
 
     def detect_ducks(self, **kwargs):
         pass
@@ -148,7 +156,7 @@ class CrossWalkNode(DTROS):
     
         # Detect lanes and colors
         masks = self.detect_lane_color(preprocessed_image)
-        lane_detected_image, detected_colors = self.detect_line(preprocessed_image.copy(), masks)
+        lane_detected_image, detected_crosswalk = self.detect_line(preprocessed_image.copy(), masks)
     
         # Publish processed image (optional)
         self.pub.publish(self._bridge.cv2_to_imgmsg(lane_detected_image, encoding="bgr8"))
