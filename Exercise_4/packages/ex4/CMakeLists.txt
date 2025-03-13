@@ -4,20 +4,26 @@ project(ex4)
 find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
+  sensor_msgs
   message_generation
 )
 
 ## Declare the service files to be processed
 add_service_files(
   FILES
-  NavigateCMD.srv  # Your service file
   MiscCtrlCMD.srv
+)
+
+add_message_files(
+  FILES
+  NavigateCMD.msg
 )
 
 ## Generate messages
 generate_messages(
   DEPENDENCIES
   std_msgs
+  sensor_msgs
 )
 
 ## Declare a catkin package
