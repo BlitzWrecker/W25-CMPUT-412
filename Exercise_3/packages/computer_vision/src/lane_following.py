@@ -200,9 +200,11 @@ class LaneFollowingNode(DTROS):
         else:
             control = self.pid_control(error)
 
+        control = np.clip(control, -self.max_control, self.max_control)
 
-        left_speed = max(min(self.base_speed - control, self.max_speed), 0)
-        right_speed = max(min(self.base_speed + control, self.max_speed), 0)
+        # Then calculate speeds normally
+        left_speed = self.base_speed - control
+        right_speed = self.base_speed + control
 
 
         cmd = WheelsCmdStamped()
