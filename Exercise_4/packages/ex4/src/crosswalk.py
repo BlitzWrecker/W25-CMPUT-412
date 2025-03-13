@@ -6,12 +6,13 @@
 import rospy
 import os
 import cv2
+import time
 import numpy as np
 from duckietown.dtros import DTROS, NodeType
-from ex4.srv import NavigateCMD
 from sensor_msgs.msg import CompressedImage, Image
 from cv_bridge import CvBridge
-from ex4.srv import MiscCtrlCMD, MiscCtrlCMDResponse
+from ex4.srv import MiscCtrlCMD
+from ex4.msg import NavigateCMD
 
 class CrossWalkNode(DTROS):
 
@@ -69,7 +70,7 @@ class CrossWalkNode(DTROS):
         # Initialize bridge and subscribe to camera feed
         self._camera_topic = f"/{self._vehicle_name}/camera_node/image/compressed"
         self._bridge = CvBridge()
-        self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback)
+        self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
 
         # Remember the last detected color. We only have to execute a different navigation control when there is a color
         # change
@@ -78,11 +79,14 @@ class CrossWalkNode(DTROS):
         # Set a distance threshhold for detecting lines so we don't detect lines that are too far away
         self.dist_thresh = 5
         
-        self.img_pub = rospy.Publisher(f"/{self._vehicle_name}/processed_image", Image, queue_size=10)
+        self.img_pub = rospy.Publisher(f"/{self._vehicle_name}/crosswalk_processed_image", Image, queue_size=10)
+        self.res_pub = rospy.Publisher(f"/{self._vehicle_name}/crosswalk_detection_res", NavigateCMD,queue_size=1)
 
         rospy.wait_for_service("misc_ctrl_srv", timeout=1)
         self.misc_ctrl = rospy.ServiceProxy("misc_ctrl_srv", MiscCtrlCMD)
         self.misc_ctrl("set_fr", 3)
+
+        self.prev_state = None
 
     def undistort_image(self, image):
         return cv2.remap(image, self.map1, self.map2, cv2.INTER_LINEAR)
@@ -113,7 +117,7 @@ class CrossWalkNode(DTROS):
     def calculate_dist(self, l1, l2):
         return np.linalg.norm(l2 - l1)
 
-    def detect_line(self, image, masks):
+    def detect_crosswalk(self, image, masks):
         colors = {"blue": (255, 0, 0), "orange": (0, 165, 255)}
         contour_dists = {}
 
@@ -145,7 +149,7 @@ class CrossWalkNode(DTROS):
                     cv2.putText(image, f"Dist: {dist*30:.2f} cm", (x, y + h + 10), cv2.FONT_HERSHEY_PLAIN, 1, colors["blue"])
  
                 rospy.loginfo("Detected empty crosswalk.")
-                return image, True
+                return image, 1
 
             if "orange" in contour_dists.keys() and len(contour_dists["blue"]) >= 1 and len(contour_dists["orange"]) > 0:
                 for i in contour_dists.keys():
@@ -154,13 +158,10 @@ class CrossWalkNode(DTROS):
                         cv2.putText(image, f"Dist: {dist*30:.2f} cm", (x, y + h + 10), cv2.FONT_HERSHEY_PLAIN, 1, colors[i])
  
                 rospy.loginfo("Deteced crosswalk with ducks.")
-                return image, True
+                return image, 2
 
         rospy.loginfo("Nothing detected yet")
-        return image, False
-
-    def detect_ducks(self, **kwargs):
-        pass
+        return image, 0
 
     def image_callback(self, msg):
         # Convert compressed image to CV2
@@ -174,10 +175,29 @@ class CrossWalkNode(DTROS):
     
         # Detect lanes and colors
         masks = self.detect_lane_color(preprocessed_image)
-        lane_detected_image, detected_crosswalk = self.detect_line(preprocessed_image.copy(), masks)
-    
+        lane_detected_image, detected_crosswalk = self.detect_crosswalk(preprocessed_image.copy(), masks)
+
         # Publish processed image (optional)
         self.img_pub.publish(self._bridge.cv2_to_imgmsg(lane_detected_image, encoding="bgr8"))
+
+        navigate_message = NavigateCMD()
+        if detected_crosswalk == 1:
+            if self.prev_state == 0:
+                navigate_message.image = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding='bgr8')
+                navigate_message.state = detected_crosswalk
+                self.res_pub.publish(navigate_message)
+                time.sleep(1)
+
+            navigate_message.image = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding='bgr8')
+            navigate_message.state = 0
+            self.res_pub.publish(navigate_message)
+            time.sleep(1)
+            return
+
+        navigate_message.image = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding='bgr8')
+        navigate_message.state = detected_crosswalk
+        self.res_pub.publish(navigate_message)
+        self.prev_state = detected_crosswalk
 
 
 if __name__ == '__main__':
