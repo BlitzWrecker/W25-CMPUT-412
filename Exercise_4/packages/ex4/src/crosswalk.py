@@ -22,14 +22,9 @@ class CrossWalkNode(DTROS):
         # add your code here
         self._vehicle_name = os.environ['VEHICLE_NAME']
 
-        # call navigation control node
-        self.naviagte_service = None
-
-        try:
-            rospy.wait_for_service('navigate_service', timeout=1)
-            self.lane_hehavior_service = rospy.ServiceProxy('navigate_service', NavigateCMD)
-        except rospy.ROSException:
-            self.naviagte_service = None
+        rospy.wait_for_service("misc_ctrl_srv", timeout=1)
+        self.misc_ctrl = rospy.ServiceProxy("misc_ctrl_srv", MiscCtrlCMD)
+        self.misc_ctrl("set_fr", 3)
 
         # define other variables as needed
         
@@ -66,11 +61,6 @@ class CrossWalkNode(DTROS):
         self.upper_blue = np.array([140, 255, 255])
         self.lower_orange = np.array([15, 100, 100])
         self.upper_orange = np.array([20, 255, 255])
-    
-        # Initialize bridge and subscribe to camera feed
-        self._camera_topic = f"/{self._vehicle_name}/camera_node/image/compressed"
-        self._bridge = CvBridge()
-        self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
 
         # Remember the last detected color. We only have to execute a different navigation control when there is a color
         # change
@@ -82,9 +72,10 @@ class CrossWalkNode(DTROS):
         self.img_pub = rospy.Publisher(f"/{self._vehicle_name}/crosswalk_processed_image", Image, queue_size=10)
         self.res_pub = rospy.Publisher(f"/{self._vehicle_name}/crosswalk_detection_res", NavigateCMD,queue_size=1)
 
-        rospy.wait_for_service("misc_ctrl_srv", timeout=1)
-        self.misc_ctrl = rospy.ServiceProxy("misc_ctrl_srv", MiscCtrlCMD)
-        self.misc_ctrl("set_fr", 3)
+        # Initialize bridge and subscribe to camera feed
+        self._camera_topic = f"/{self._vehicle_name}/camera_node/image/compressed"
+        self._bridge = CvBridge()
+        self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
 
         self.prev_state = None
 
@@ -181,17 +172,33 @@ class CrossWalkNode(DTROS):
         self.img_pub.publish(self._bridge.cv2_to_imgmsg(lane_detected_image, encoding="bgr8"))
 
         navigate_message = NavigateCMD()
+
+        # We have come across an empty crosswalk. Either (1) there were ducks on this crosswalk before, but now they
+        # have crossed, or (2) there were no ducks on this crosswalk when we first approached it.
         if detected_crosswalk == 1:
+            # Case (2): we have to stop for one second before moving on
             if self.prev_state == 0:
+                # Signal the lane following node to stop the vehicle
                 navigate_message.image = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding='bgr8')
                 navigate_message.state = detected_crosswalk
                 self.res_pub.publish(navigate_message)
+
+                # We must stop the vehicle for at least one second. We implement this using the Python built-in function
+                # time.sleep(). During this time the camera will continue to publish captured images, but we cannot
+                # process them. To prevent this pile up of unprocess images, we first unregister from the camera topic.
+                self.sub.unregister()
                 time.sleep(1)
 
             navigate_message.image = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding='bgr8')
             navigate_message.state = 0
             self.res_pub.publish(navigate_message)
+
+            # Same reason as above
+            self.sub.unregister()
             time.sleep(1)
+
+            # We must re-establish the camera subscriber before the next iteration
+            self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
             return
 
         navigate_message.image = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding='bgr8')
