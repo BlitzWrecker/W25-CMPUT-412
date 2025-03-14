@@ -10,6 +10,7 @@ from duckietown_msgs.msg import WheelsCmdStamped
 from std_msgs.msg import Float32, Int32
 from cv_bridge import CvBridge
 import os
+import math
 
 
 class LaneFollowingNode(DTROS):
@@ -262,13 +263,15 @@ class LaneFollowingNode(DTROS):
 
         # Crop the image to only include the lower half
         height, width = image.shape[:2]
+        cropped_image_redline = image[math.ceil(height / 1.5):height, :]
         cropped_image = image[height // 2:height, :]
-
         # Detect red line
         current_time = rospy.get_time()
-        if self.detect_red_line(cropped_image):
-            if not self.stopped_for_red or (current_time - self.last_red_line_time > self.red_line_cooldown):
-                stop_duration = self.tag_stop_times.get(self.last_tag_id, 0.5)
+        if self.detect_red_line(cropped_image_redline):
+            stop_duration = self.tag_stop_times.get(self.last_tag_id)
+            if not self.stopped_for_red or (current_time - self.last_red_line_time > self.red_line_cooldown + stop_duration):
+                rospy.loginfo(type(self.last_tag_id))
+                rospy.loginfo(self.last_tag_id)
                 rospy.loginfo(f"Red line detected. Stopping for {stop_duration} seconds.")
                 self.stop_for_duration(stop_duration)
                 self.stopped_for_red = True
@@ -279,7 +282,7 @@ class LaneFollowingNode(DTROS):
 
         # Continue lane following
         error = self.calculate_error(cropped_image)
-        rospy.loginfo(error)
+        # rospy.loginfo(error)
         self.publish_cmd(error)
 
     def on_shutdown(self):
