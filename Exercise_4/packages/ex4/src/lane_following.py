@@ -427,9 +427,8 @@ class LaneFollowingNode(DTROS):
         self.pub_cmd.publish(cmd)
 
     def image_callback(self, msg):
-
-
-        image = self.bridge.compressed_imgmsg_to_cv2(msg, "bgr8")
+        """Processes camera image to detect lane and compute error."""
+        image = self.bridge.compressed_imgmsg_to_cv2(msg, desired_encoding="bgr8")
 
         cropped_image = image
         current_time = rospy.get_time()
@@ -438,7 +437,7 @@ class LaneFollowingNode(DTROS):
         vehicle_detected, _ = self.detect_vehicle(cropped_image)
 
 
-        
+
         if vehicle_detected and self.state == "LANE_FOLLOWING":
             self.state = "STOPPING"
             self.detection_time = current_time

@@ -7,6 +7,7 @@ import numpy as np
 from duckietown.dtros import DTROS, NodeType
 from duckietown_msgs.msg import BoolStamped
 from sensor_msgs.msg import CompressedImage, CameraInfo, Image
+from std_msgs.msg import Int32
 from cv_bridge import CvBridge
 from dt_apriltags import Detector
 from ex4.srv import MiscCtrlCMD, MiscCtrlCMDResponse
@@ -39,6 +40,9 @@ class ApriltagNode(DTROS):
 
         # Publish augmented image
         self.augmented_img_pub = rospy.Publisher(f"/{self._vehicle_name}/processed_image", Image, queue_size=10)
+
+        self.tag_id_pub = rospy.Publisher(f"/{self._vehicle_name}/detected_tag_id", Int32, queue_size=1)
+
 
         # Set the new camera framerate to 3
         self.new_framerate = 3
@@ -80,19 +84,22 @@ class ApriltagNode(DTROS):
         closest_tag = self.find_closest_tag(tags)
 
         # Update LED color only if a new tag is detected
-        if closest_tag is None:
-            tag_id = -1
-        else:
+        if closest_tag:
             tag_id = closest_tag.tag_id
 
-        if tag_id != self.prev_tag:
-            self.misc_ctrl_srv("set_led", self.tag_mapping[tag_id])
-            self.prev_tag = tag_id
+            if tag_id != self.prev_tag:
+                self.misc_ctrl_srv("set_led", self.tag_mapping[tag_id])
+                self.prev_tag = tag_id
 
-        # Draw bounding boxes and tag IDs for the closest tag only
+            self.tag_id_pub.publish(tag_id)
+            rospy.loginfo("Published tag_id:")
+            rospy.loginfo(tag_id)
+            # Draw bounding boxes and tag IDs for the closest tag only
+
+        elif not self.prev_tag:
+            self.misc_ctrl_srv("set_led", self.tag_mapping[-1])
+        
         augmented_image = self.publish_augmented_img(cv_image, closest_tag)
-
-        # Publish augmented image
         try:
             self.augmented_img_pub.publish(self.bridge.cv2_to_imgmsg(augmented_image, encoding="bgr8"))
         except Exception as e:
