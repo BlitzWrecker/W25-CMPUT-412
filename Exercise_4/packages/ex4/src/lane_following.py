@@ -6,11 +6,16 @@ import numpy as np
 import time
 from duckietown.dtros import DTROS, NodeType
 from sensor_msgs.msg import CompressedImage, Image
-from duckietown_msgs.msg import WheelsCmdStamped
+from duckietown_msgs.msg import WheelsCmdStamped, WheelEncoderStamped
 from std_msgs.msg import Float32, Int32
 from cv_bridge import CvBridge
 import os
+import math
 
+WHEEL_RADIUS = 0.0318  # meters (Duckiebot wheel radius)
+WHEEL_BASE = 0.05  # meters (distance between left and right wheels)
+TICKS_PER_ROTATION = 135  # Encoder ticks per full wheel rotation
+TURN_SPEED = 0.3  # Adjust speed for accuracy
 
 class LaneFollowingNode(DTROS):
     def __init__(self, node_name):
@@ -58,6 +63,11 @@ class LaneFollowingNode(DTROS):
         self.base_speed = 0.3  # Base wheel speed
         self.max_speed = 0.5  # Max wheel speed
 
+        self._ticks_left_init = None
+        self._ticks_right_init = None
+        self._ticks_left = None
+        self._ticks_right = None
+
         # Initialize bridge and publishers/subscribers
         self.bridge = CvBridge()
         self._vehicle_name = os.environ['VEHICLE_NAME']
@@ -68,6 +78,13 @@ class LaneFollowingNode(DTROS):
         # Subscribe to the detected_tag_id topic
         self.tag_id_sub = rospy.Subscriber(f"/{self._vehicle_name}/detected_tag_id", Int32, self.tag_id_callback)
 
+        self._left_encoder_topic = f"/{self._vehicle_name}/left_wheel_encoder_node/tick"
+        self._right_encoder_topic = f"/{self._vehicle_name}/right_wheel_encoder_node/tick"
+
+        self.sub_left = rospy.Subscriber(self._left_encoder_topic, WheelEncoderStamped, self.callback_left)
+        self.sub_right = rospy.Subscriber(self._right_encoder_topic, WheelEncoderStamped, self.callback_right)
+        wheels_topic = f"/{self._vehicle_name}/wheels_driver_node/wheels_cmd"
+        self._publisher = rospy.Publisher(wheels_topic, WheelsCmdStamped, queue_size=1)
         # AprilTag stop times
         self.tag_stop_times = {21: 3.0, 133: 2.0, 94: 1.0, -1: 0.5}
         self.last_tag_id = -1
@@ -86,6 +103,147 @@ class LaneFollowingNode(DTROS):
         self.stopped_for_red = False  # Flag to track if the bot has already stopped for the red line
         self.red_line_cooldown = 4.0  # Cooldown time in seconds (adjust as needed)
         self.last_red_line_time = 0.0  # Timestamp of the last red line detection
+
+        # Vehicle detection parameters
+        self.circlepattern_dims = [4, 3]  # Columns, rows in circle pattern
+        self.blobdetector_min_area = 25
+        self.blobdetector_min_dist_between_blobs = 5
+
+        # Initialize blob detector
+        params = cv2.SimpleBlobDetector_Params()
+        params.minArea = self.blobdetector_min_area
+        params.minDistBetweenBlobs = self.blobdetector_min_dist_between_blobs
+        self.blob_detector = cv2.SimpleBlobDetector_create(params)
+
+        # State machine variables
+        self.state = "LANE_FOLLOWING"
+        self.detection_time = 0.0
+        self.maneuver_start_time = 0.0
+        self.pub_wheels = rospy.Publisher(f'/{self._vehicle_name}/wheels_driver_node/wheels_cmd', WheelsCmdStamped,
+                                          queue_size=1)
+        self.happened = False
+    def move_wheels(self, left_vel, right_vel, duration):
+        """Actively publishes movement commands at a controlled rate."""
+        rospy.loginfo(f"Moving: Left = {left_vel}, Right = {right_vel} for {duration} seconds")
+        self.reset_encoders()
+
+        cmd = WheelsCmdStamped()
+        cmd.vel_left = left_vel
+        cmd.vel_right = right_vel
+
+        distance_traveled = (2 * math.pi * 0.0318 * (self._ticks_left + self._ticks_right)/2 ) / 135
+        distance = duration
+        message = WheelsCmdStamped(vel_left=left_vel, vel_right=right_vel)
+        self._publisher.publish(message)
+        rate = rospy.Rate(100)
+        while not rospy.is_shutdown():
+            if self._ticks_right is not None and self._ticks_left is not None:
+                distance_traveled = (2 * math.pi * 0.0318 * (self._ticks_left + self._ticks_right)/2 ) / 135
+
+            if distance_traveled >= distance:
+
+                message = WheelsCmdStamped(vel_left=0, vel_right=0)
+                self._publisher.publish(message)
+                break
+
+            rospy.loginfo(distance_traveled)
+            rospy.loginfo(self._ticks_left)
+
+            self._publisher.publish(message)
+            rate.sleep()
+
+        # Stop the robot after moving
+        rospy.loginfo("Stopping robot")
+        stop_command = WheelsCmdStamped(vel_left=0, vel_right=0)  # ✅ Correct Stop Command
+        self.pub_wheels.publish(stop_command)
+        rospy.sleep(0.5)  # Ensure stop command is received
+
+    def turn_90_degrees(self, direction=1):
+        """
+        Turns the Duckiebot 90 degrees in place.
+        :param direction: 1 for left, -1 for right
+        """
+        # Reset encoder counters before each turn
+        self.reset_encoders()
+
+        # Compute required encoder ticks for 90-degree turn
+        ticks_needed = round((WHEEL_BASE / (8 * WHEEL_RADIUS)) * TICKS_PER_ROTATION) + 11
+        rospy.loginfo(f"Ticks needed for 90-degree turn: {ticks_needed}")
+
+        # Command wheels to rotate in opposite directions
+        turn_command = WheelsCmdStamped(
+            vel_left=TURN_SPEED * direction,
+            vel_right=-TURN_SPEED * direction
+        )
+        self._publisher.publish(turn_command)
+
+        # Wait until the required ticks are reached
+        rate = rospy.Rate(100)  # 10 Hz loop
+        while not rospy.is_shutdown():
+            if self._ticks_left is not None and self._ticks_right is not None:
+                avg_ticks = (abs(self._ticks_left) + abs(self._ticks_right)) / 2
+                rospy.loginfo(f"Current ticks: {avg_ticks}")
+
+                if avg_ticks >= ticks_needed:
+                    rospy.loginfo("90-degree turn complete.")
+                    break
+
+            self._publisher.publish(turn_command)
+            rate.sleep()
+
+        # Stop the robot
+        stop_command = WheelsCmdStamped(vel_left=0, vel_right=0)
+        self._publisher.publish(stop_command)
+        rospy.sleep(1)  # Small delay to stabilize
+    def callback_left(self, data):
+        # log general information once at the beginning
+        rospy.loginfo_once(f"Left encoder resolution: {data.resolution}")
+        rospy.loginfo_once(f"Left encoder type: {data.type}")
+        # store data value
+        if self._ticks_left_init is None:
+            self._ticks_left_init = data.data
+            self._ticks_left = 0
+        else:
+            self._ticks_left = data.data - self._ticks_left_init
+
+    def callback_right(self, data):
+        # log general information once at the beginning
+        rospy.loginfo_once(f"Right encoder resolution: {data.resolution}")
+        rospy.loginfo_once(f"Right encoder type: {data.type}")
+        # store data value
+        if self._ticks_right_init is None:
+            self._ticks_right_init = data.data
+            self._ticks_right = 0
+        else:
+            self._ticks_right = data.data - self._ticks_right_init
+    def reset_encoders(self):
+        """ Reset encoder counters to track new movements """
+        self._ticks_left_init = None
+        self._ticks_right_init = None
+        self._ticks_left = None
+        self._ticks_right = None
+        # Wait for encoder data to reinitialize
+        rospy.loginfo("Resetting encoders...")
+        rate = rospy.Rate(10)
+        while not rospy.is_shutdown():
+            if self._ticks_left is not None and self._ticks_right is not None:
+                break
+            rate.sleep()
+        rospy.loginfo("Encoders reset complete.")
+
+    def detect_vehicle(self, image):
+        """Direct vehicle detection using circle grid pattern"""
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        (detection, centers) = cv2.findCirclesGrid(
+            gray,
+            patternSize=tuple(self.circlepattern_dims),
+            flags=cv2.CALIB_CB_SYMMETRIC_GRID,
+            blobDetector=self.blob_detector
+        )
+
+        if detection:
+            return True, centers
+        return False, None
 
     def tag_id_callback(self, msg):
         """Callback for the detected_tag_id topic."""
@@ -256,31 +414,71 @@ class LaneFollowingNode(DTROS):
         cmd.vel_right = right_speed
         self.pub_cmd.publish(cmd)
 
+    def publish_avoidance_command(self, direction):
+        cmd = WheelsCmdStamped()
+        if direction == "right":
+            cmd.vel_left, cmd.vel_right = 0.4, 0.0
+        elif direction == "forward":
+            cmd.vel_left, cmd.vel_right = 0.4, 0.4
+        elif direction == "left":
+            cmd.vel_left, cmd.vel_right = 0.0, 0.4
+        elif direction == "stop":
+            cmd.vel_left, cmd.vel_right = 0.0, 0.0
+        self.pub_cmd.publish(cmd)
+
     def image_callback(self, msg):
-        """Processes camera image to detect lane and compute error."""
-        image = self.bridge.compressed_imgmsg_to_cv2(msg, desired_encoding="bgr8")
 
-        # Crop the image to only include the lower half
-        height, width = image.shape[:2]
-        cropped_image = image[height // 2:height, :]
 
-        # Detect red line
+        image = self.bridge.compressed_imgmsg_to_cv2(msg, "bgr8")
+
+        cropped_image = image
         current_time = rospy.get_time()
-        if self.detect_red_line(cropped_image):
-            if not self.stopped_for_red or (current_time - self.last_red_line_time > self.red_line_cooldown):
-                stop_duration = self.tag_stop_times.get(self.last_tag_id, 0.5)
-                rospy.loginfo(f"Red line detected. Stopping for {stop_duration} seconds.")
-                self.stop_for_duration(stop_duration)
-                self.stopped_for_red = True
-                self.last_red_line_time = current_time
-        else:
-            # Reset the flag if no red line is detected
-            self.stopped_for_red = False
 
-        # Continue lane following
-        error = self.calculate_error(cropped_image)
-        rospy.loginfo(error)
-        self.publish_cmd(error)
+        # Add vehicle detection directly here
+        vehicle_detected, _ = self.detect_vehicle(cropped_image)
+
+
+        
+        if vehicle_detected and self.state == "LANE_FOLLOWING":
+            self.state = "STOPPING"
+            self.detection_time = current_time
+            rospy.loginfo("Vehicle detected! Initiating avoidance maneuver")
+
+        if self.state == "LANE_FOLLOWING":
+            self.happened = False
+            if self.detect_red_line(cropped_image) and (
+                    current_time - self.last_red_line_time > self.red_line_cooldown):
+                stop_duration = self.tag_stop_times.get(self.last_tag_id, 0.5)
+                self.stop_for_duration(stop_duration)
+                self.last_red_line_time = current_time
+            error = self.calculate_error(cropped_image)
+            self.publish_cmd(error)
+        elif self.state == "STOPPING":
+            cmd = WheelsCmdStamped()
+            cmd.vel_left, cmd.vel_right = 0, 0
+            self.pub_cmd.publish(cmd)
+            if current_time - self.detection_time > 1.0:
+                self.state = "AVOIDING"
+                self.maneuver_start_time = current_time
+        elif self.state == "AVOIDING":
+
+            self.image_sub.unregister()
+
+            rospy.sleep(3)
+            self.turn_90_degrees(-1)
+            self.move_wheels(0.5,0.5,0.10)
+            self.turn_90_degrees(1)
+            self.move_wheels(0.5, 0.5, 0.60)
+            self.turn_90_degrees(1)
+            self.move_wheels(0.5, 0.5, 0.10)
+            self.turn_90_degrees(-1)
+
+            self.image_sub = rospy.Subscriber(f"/{self._vehicle_name}/camera_node/image/compressed", CompressedImage,
+                                              self.image_callback)
+
+            rospy.loginfo("Back to lane following")
+            self.state = "LANE_FOLLOWING"
+
 
     def on_shutdown(self):
         cmd = WheelsCmdStamped()
