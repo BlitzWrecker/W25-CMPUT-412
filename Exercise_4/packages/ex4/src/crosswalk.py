@@ -60,7 +60,7 @@ class CrossWalkNode(DTROS):
         self.lower_blue = np.array([100, 150, 50])
         self.upper_blue = np.array([140, 255, 255])
         self.lower_orange = np.array([15, 100, 100])
-        self.upper_orange = np.array([20, 255, 255])
+        self.upper_orange = np.array([25, 255, 255])
 
         # Remember the last detected color. We only have to execute a different navigation control when there is a color
         # change
@@ -140,7 +140,7 @@ class CrossWalkNode(DTROS):
                     cv2.putText(image, f"Dist: {dist*30:.2f} cm", (x, y + h + 10), cv2.FONT_HERSHEY_PLAIN, 1, colors["blue"])
  
                 rospy.loginfo("Detected empty crosswalk.")
-                return image, 1
+                return image, 2
 
             if "orange" in contour_dists.keys() and len(contour_dists["blue"]) >= 1 and len(contour_dists["orange"]) > 0:
                 for i in contour_dists.keys():
@@ -149,7 +149,7 @@ class CrossWalkNode(DTROS):
                         cv2.putText(image, f"Dist: {dist*30:.2f} cm", (x, y + h + 10), cv2.FONT_HERSHEY_PLAIN, 1, colors[i])
  
                 rospy.loginfo("Deteced crosswalk with ducks.")
-                return image, 2
+                return image, 3
 
         rospy.loginfo("Nothing detected yet")
         return image, 0
@@ -173,11 +173,18 @@ class CrossWalkNode(DTROS):
 
         navigate_message = NavigateCMD()
 
+        if self.prev_state == 1:
+            if detected_crosswalk >= 2:
+                navigate_message.image = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding='bgr8')
+                navigate_message.state = 1
+                self.res_pub.publish(navigate_message)
+                return
+
         # We have come across an empty crosswalk. Either (1) there were ducks on this crosswalk before, but now they
         # have crossed, or (2) there were no ducks on this crosswalk when we first approached it.
-        if detected_crosswalk == 1:
+        if detected_crosswalk == 2:
             # Case (2): we have to stop for one second before moving on
-            if self.prev_state == 0:
+            if self.prev_state is None or (self.prev_state is not None and self.prev_state <= 1):
                 # Signal the lane following node to stop the vehicle
                 navigate_message.image = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding='bgr8')
                 navigate_message.state = detected_crosswalk
@@ -189,16 +196,10 @@ class CrossWalkNode(DTROS):
                 self.sub.unregister()
                 time.sleep(1)
 
-            navigate_message.image = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding='bgr8')
-            navigate_message.state = 0
-            self.res_pub.publish(navigate_message)
-
-            # Same reason as above
-            self.sub.unregister()
-            time.sleep(1)
-
-            # We must re-establish the camera subscriber before the next iteration
-            self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
+                # We must re-establish the camera subscriber before the next iteration
+                self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
+ 
+            self.prev_state = 1
             return
 
         navigate_message.image = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding='bgr8')

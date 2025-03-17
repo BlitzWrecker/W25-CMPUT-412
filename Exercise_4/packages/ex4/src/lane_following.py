@@ -197,7 +197,7 @@ class LaneFollowingNode(DTROS):
         """Processes camera image to detect lane and compute error."""
         state = msg.state
 
-        if state > 0:
+        if state > 1:
             self.stop()
             return
 
