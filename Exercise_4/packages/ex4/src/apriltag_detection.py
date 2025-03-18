@@ -88,8 +88,12 @@ class ApriltagNode(DTROS):
             tag_id = closest_tag.tag_id
 
             if tag_id != self.prev_tag:
-                self.misc_ctrl_srv("set_led", self.tag_mapping[tag_id])
-                self.prev_tag = tag_id
+                try:
+                    self.misc_ctrl_srv("set_led", self.tag_mapping[tag_id])
+                    self.prev_tag = tag_id
+                except:
+                    rospy.loginfo("Tag not recognized:")
+                    rospy.loginfo(tag_id)
 
             self.tag_id_pub.publish(tag_id)
             rospy.loginfo("Published tag_id:")
