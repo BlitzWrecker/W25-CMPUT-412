@@ -91,13 +91,12 @@ class ApriltagNode(DTROS):
                 try:
                     self.misc_ctrl_srv("set_led", self.tag_mapping[tag_id])
                     self.prev_tag = tag_id
-                except:
-                    rospy.loginfo("Tag not recognized:")
+                    self.tag_id_pub.publish(tag_id)
+                    rospy.loginfo("Published tag_id:")
                     rospy.loginfo(tag_id)
-
-            self.tag_id_pub.publish(tag_id)
-            rospy.loginfo("Published tag_id:")
-            rospy.loginfo(tag_id)
+                except:
+                    rospy.loginfo("Apriltag not recognized:")
+                    rospy.loginfo(tag_id)
             # Draw bounding boxes and tag IDs for the closest tag only
 
         elif not self.prev_tag:

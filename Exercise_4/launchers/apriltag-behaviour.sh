@@ -8,7 +8,7 @@ dt-launchfile-init
 # launch subscriber
 rosrun ex4 misc_control.py &
 rosrun ex4 apriltag_detection.py &
-rosrun ex4 lane_following.py
+rosrun ex4 apriltag_behaviour.py
 
 # wait for app to end
 dt-launchfile-join
