@@ -11,11 +11,12 @@ from std_msgs.msg import Float32, Int32
 from cv_bridge import CvBridge
 import os
 import math
+from ex4.srv import MiscCtrlCMD
 
 WHEEL_RADIUS = 0.0318  # meters (Duckiebot wheel radius)
 WHEEL_BASE = 0.05  # meters (distance between left and right wheels)
 TICKS_PER_ROTATION = 135  # Encoder ticks per full wheel rotation
-TURN_SPEED = 0.3  # Adjust speed for accuracy
+TURN_SPEED = 0.35  # Adjust speed for accuracy
 
 class LaneFollowingNode(DTROS):
     def __init__(self, node_name):
@@ -121,7 +122,13 @@ class LaneFollowingNode(DTROS):
         self.maneuver_start_time = 0.0
         self.pub_wheels = rospy.Publisher(f'/{self._vehicle_name}/wheels_driver_node/wheels_cmd', WheelsCmdStamped,
                                           queue_size=1)
-        self.happened = False
+
+        rospy.wait_for_service("misc_ctrl_srv", timeout=1)
+        self.misc_ctrl = rospy.ServiceProxy("misc_ctrl_srv", MiscCtrlCMD)
+        self.misc_ctrl("set_fr", 3)
+        
+        rospy.on_shutdown(self.on_shutdown)
+
     def move_wheels(self, left_vel, right_vel, duration):
         """Actively publishes movement commands at a controlled rate."""
         rospy.loginfo(f"Moving: Left = {left_vel}, Right = {right_vel} for {duration} seconds")
@@ -131,26 +138,26 @@ class LaneFollowingNode(DTROS):
         cmd.vel_left = left_vel
         cmd.vel_right = right_vel
 
-        distance_traveled = (2 * math.pi * 0.0318 * (self._ticks_left + self._ticks_right)/2 ) / 135
+        # distance_traveled = (2 * math.pi * 0.0318 * (self._ticks_left + self._ticks_right)/2 ) / 135
         distance = duration
         message = WheelsCmdStamped(vel_left=left_vel, vel_right=right_vel)
-        self._publisher.publish(message)
+        # self._publisher.publish(message)
         rate = rospy.Rate(100)
         while not rospy.is_shutdown():
             if self._ticks_right is not None and self._ticks_left is not None:
                 distance_traveled = (2 * math.pi * 0.0318 * (self._ticks_left + self._ticks_right)/2 ) / 135
 
-            if distance_traveled >= distance:
+                if distance_traveled >= distance:
 
-                message = WheelsCmdStamped(vel_left=0, vel_right=0)
+                    message = WheelsCmdStamped(vel_left=0, vel_right=0)
+                    self._publisher.publish(message)
+                    break
+
+                rospy.loginfo(distance_traveled)
+                rospy.loginfo(self._ticks_left)
+
                 self._publisher.publish(message)
-                break
-
-            rospy.loginfo(distance_traveled)
-            rospy.loginfo(self._ticks_left)
-
-            self._publisher.publish(message)
-            rate.sleep()
+                rate.sleep()
 
         # Stop the robot after moving
         rospy.loginfo("Stopping robot")
@@ -195,6 +202,7 @@ class LaneFollowingNode(DTROS):
         stop_command = WheelsCmdStamped(vel_left=0, vel_right=0)
         self._publisher.publish(stop_command)
         rospy.sleep(1)  # Small delay to stabilize
+
     def callback_left(self, data):
         # log general information once at the beginning
         rospy.loginfo_once(f"Left encoder resolution: {data.resolution}")
@@ -216,6 +224,7 @@ class LaneFollowingNode(DTROS):
             self._ticks_right = 0
         else:
             self._ticks_right = data.data - self._ticks_right_init
+
     def reset_encoders(self):
         """ Reset encoder counters to track new movements """
         self._ticks_left_init = None
@@ -414,29 +423,16 @@ class LaneFollowingNode(DTROS):
         cmd.vel_right = right_speed
         self.pub_cmd.publish(cmd)
 
-    def publish_avoidance_command(self, direction):
-        cmd = WheelsCmdStamped()
-        if direction == "right":
-            cmd.vel_left, cmd.vel_right = 0.4, 0.0
-        elif direction == "forward":
-            cmd.vel_left, cmd.vel_right = 0.4, 0.4
-        elif direction == "left":
-            cmd.vel_left, cmd.vel_right = 0.0, 0.4
-        elif direction == "stop":
-            cmd.vel_left, cmd.vel_right = 0.0, 0.0
-        self.pub_cmd.publish(cmd)
-
     def image_callback(self, msg):
         """Processes camera image to detect lane and compute error."""
         image = self.bridge.compressed_imgmsg_to_cv2(msg, desired_encoding="bgr8")
 
-        cropped_image = image
+        height, _ = image.shape[:2]
+        cropped_image = image[height // 2:height, :]
         current_time = rospy.get_time()
 
         # Add vehicle detection directly here
-        vehicle_detected, _ = self.detect_vehicle(cropped_image)
-
-
+        vehicle_detected, _ = self.detect_vehicle(image)
 
         if vehicle_detected and self.state == "LANE_FOLLOWING":
             self.state = "STOPPING"
@@ -444,12 +440,6 @@ class LaneFollowingNode(DTROS):
             rospy.loginfo("Vehicle detected! Initiating avoidance maneuver")
 
         if self.state == "LANE_FOLLOWING":
-            self.happened = False
-            if self.detect_red_line(cropped_image) and (
-                    current_time - self.last_red_line_time > self.red_line_cooldown):
-                stop_duration = self.tag_stop_times.get(self.last_tag_id, 0.5)
-                self.stop_for_duration(stop_duration)
-                self.last_red_line_time = current_time
             error = self.calculate_error(cropped_image)
             self.publish_cmd(error)
         elif self.state == "STOPPING":
@@ -465,11 +455,11 @@ class LaneFollowingNode(DTROS):
 
             rospy.sleep(3)
             self.turn_90_degrees(-1)
-            self.move_wheels(0.5,0.5,0.10)
+            self.move_wheels(0.5,0.5,0.15)
             self.turn_90_degrees(1)
             self.move_wheels(0.5, 0.5, 0.60)
             self.turn_90_degrees(1)
-            self.move_wheels(0.5, 0.5, 0.10)
+            self.move_wheels(0.5, 0.5, 0.15)
             self.turn_90_degrees(-1)
 
             self.image_sub = rospy.Subscriber(f"/{self._vehicle_name}/camera_node/image/compressed", CompressedImage,
@@ -488,5 +478,4 @@ class LaneFollowingNode(DTROS):
 
 if __name__ == '__main__':
     node = LaneFollowingNode(node_name='lane_following_node')
-    rospy.on_shutdown(node.on_shutdown)
     rospy.spin()
