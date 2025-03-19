@@ -88,6 +88,8 @@ class LaneFollowingNode(DTROS):
         self.red_line_cooldown = 4.0  # Cooldown time in seconds (adjust as needed)
         self.last_red_line_time = 0.0  # Timestamp of the last red line detection
 
+        self.start_time = time.time()
+
     def tag_id_callback(self, msg):
         """Callback for the detected_tag_id topic."""
         self.last_tag_id = msg.data
@@ -280,10 +282,13 @@ class LaneFollowingNode(DTROS):
             # Reset the flag if no red line is detected
             self.stopped_for_red = False
 
-        # Continue lane following
-        error = self.calculate_error(cropped_image)
-        # rospy.loginfo(error)
-        self.publish_cmd(error)
+        if time.time() - self.start_time > 10:
+            # Continue lane following
+            error = self.calculate_error(cropped_image)
+            # rospy.loginfo(error)
+            self.publish_cmd(error)
+        else:
+            rospy.loginfo("Waiting for camera intialization")
 
     def on_shutdown(self):
         cmd = WheelsCmdStamped()
