@@ -184,7 +184,7 @@ class CrossWalkNode(DTROS):
         # have crossed, or (2) there were no ducks on this crosswalk when we first approached it.
         if detected_crosswalk == 2:
             # Case (2): we have to stop for one second before moving on
-            if self.prev_state is None or (self.prev_state is not None and self.prev_state <= 1):
+            if self.prev_state is None or (self.prev_state is not None and self.prev_state < 1):
                 # Signal the lane following node to stop the vehicle
                 navigate_message.image = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding='bgr8')
                 navigate_message.state = detected_crosswalk
