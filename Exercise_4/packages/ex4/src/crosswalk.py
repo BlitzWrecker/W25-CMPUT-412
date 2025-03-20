@@ -7,6 +7,7 @@ import rospy
 import os
 import cv2
 import time
+import math
 import numpy as np
 from duckietown.dtros import DTROS, NodeType
 from sensor_msgs.msg import CompressedImage, Image
@@ -60,7 +61,7 @@ class CrossWalkNode(DTROS):
         self.lower_blue = np.array([100, 150, 50])
         self.upper_blue = np.array([140, 255, 255])
         self.lower_orange = np.array([15, 100, 100])
-        self.upper_orange = np.array([25, 255, 255])
+        self.upper_orange = np.array([20, 255, 255])
 
         # Remember the last detected color. We only have to execute a different navigation control when there is a color
         # change
@@ -78,6 +79,9 @@ class CrossWalkNode(DTROS):
         self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
 
         self.prev_state = None
+
+        # Used to wait for camera initialization
+        self.start_time = rospy.get_time()
 
     def undistort_image(self, image):
         return cv2.remap(image, self.map1, self.map2, cv2.INTER_LINEAR)
@@ -134,14 +138,6 @@ class CrossWalkNode(DTROS):
             contour_dists[color_name] = sorted(contour_dists[color_name], key=lambda x: x[0])
 
         if "blue" in contour_dists.keys():
-            if len(contour_dists["blue"]) >= 2:
-                for dist, x, y, w, h in contour_dists["blue"]:
-                    cv2.rectangle(image, (x, y), (x + w, y + h), colors["blue"], 2)
-                    cv2.putText(image, f"Dist: {dist*30:.2f} cm", (x, y + h + 10), cv2.FONT_HERSHEY_PLAIN, 1, colors["blue"])
- 
-                rospy.loginfo("Detected empty crosswalk.")
-                return image, 2
-
             if "orange" in contour_dists.keys() and len(contour_dists["blue"]) >= 1 and len(contour_dists["orange"]) > 0:
                 for i in contour_dists.keys():
                     for dist, x, y, w, h in contour_dists[i]:
@@ -151,10 +147,23 @@ class CrossWalkNode(DTROS):
                 rospy.loginfo("Deteced crosswalk with ducks.")
                 return image, 3
 
+            if len(contour_dists["blue"]) >= 2:
+                for dist, x, y, w, h in contour_dists["blue"]:
+                    cv2.rectangle(image, (x, y), (x + w, y + h), colors["blue"], 2)
+                    cv2.putText(image, f"Dist: {dist*30:.2f} cm", (x, y + h + 10), cv2.FONT_HERSHEY_PLAIN, 1, colors["blue"])
+ 
+                rospy.loginfo("Detected empty crosswalk.")
+                return image, 2
+
         rospy.loginfo("Nothing detected yet")
         return image, 0
 
     def image_callback(self, msg):
+        current_time = rospy.get_time()
+        if current_time - self.start_time <= 10:
+            rospy.loginfo("Waiting for camera initialization")
+            return
+
         # Convert compressed image to CV2
         image = self._bridge.compressed_imgmsg_to_cv2(msg)
     
@@ -164,9 +173,15 @@ class CrossWalkNode(DTROS):
         # Preprocess image
         preprocessed_image = self.preprocess_image(undistorted_image)
     
+        # Crop the bottom of the image before detecting crosswalks because the bottom of the image is warped even after
+        # undistortion. Another way to achieve the same purpose is to apply a minimum distance threshold, i.e. the blue
+        # lines have to be at least x units away. 
+        height, _ = preprocessed_image.shape[:2]
+        cropped_image = preprocessed_image[:math.ceil(height * 0.7), :]
+
         # Detect lanes and colors
-        masks = self.detect_lane_color(preprocessed_image)
-        lane_detected_image, detected_crosswalk = self.detect_crosswalk(preprocessed_image.copy(), masks)
+        masks = self.detect_lane_color(cropped_image)
+        lane_detected_image, detected_crosswalk = self.detect_crosswalk(cropped_image.copy(), masks)
 
         # Publish processed image (optional)
         self.img_pub.publish(self._bridge.cv2_to_imgmsg(lane_detected_image, encoding="bgr8"))
@@ -192,7 +207,7 @@ class CrossWalkNode(DTROS):
 
                 # We must stop the vehicle for at least one second. We implement this using the Python built-in function
                 # time.sleep(). During this time the camera will continue to publish captured images, but we cannot
-                # process them. To prevent this pile up of unprocess images, we first unregister from the camera topic.
+                # process them. To prevent this pile up of unprocessed images, we first unregister from the camera topic.
                 self.sub.unregister()
                 time.sleep(1)
 
