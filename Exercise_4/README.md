@@ -8,7 +8,7 @@ Finally, we implemented an autonomous safe navigation behavior on our Duckiebot.
 
 ---
 
-## Part 1: AprilTag Detection👀
+## Part 1: AprilTag Detection🛑
 
 ### AprilTag detection
 **File:** `packages/ex4/src/apriltag_detection.py`  
@@ -25,7 +25,7 @@ dts devel run -H ROBOT_NAME -L apriltag-behaviour
 
 ---
 
-## Part 2: PeDuckstrian Crosswalks
+## Part 2: PeDuckstrian Crosswalks🚸
 
 
 **File:** `packages/ex4/src/crosswalk.py`  
@@ -38,7 +38,7 @@ dts devel run -H ROBOT_NAME -L crosswalk
 
 ---
 
-## Part 3: Safe Navigation
+## Part 3: Safe Navigation🦺
 
 **File:** `packages/ex4/src/safe_driving.py`  
 **Description:** Detects the back of a broken down duckiebot and moves around it
