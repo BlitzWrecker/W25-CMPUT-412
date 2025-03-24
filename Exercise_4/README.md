@@ -49,3 +49,10 @@ dts devel run -H ROBOT_NAME -L safe-driving
 ```
 
 ---
+
+## MiscellaneousControl Node
+
+**File:** `packages/ex4/src/misc_control.py`  
+**Description:** All of the above tasks uses this node to control the led and set the camera framerate
+
+---
