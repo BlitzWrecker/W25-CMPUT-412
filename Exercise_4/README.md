@@ -1,62 +1,51 @@
-# Exercise 3: Computer Vision and Autonomous Navigation
+# Exercise 4: Apriltag Detection & Safety on Robots
 
 This repository is built on the following template: [Duckietown Template-ROS](https://github.com/duckietown/template-ros/).
 
-In this exercise, we explore computer vision techniques for lane detection, color-based behavior execution, and autonomous navigation using controllers. The project is divided into three main parts: **Computer Vision**, **Controllers**, and **Lane Following**.
+In this exercise, we programmed our duckiebot to detect, read, and react to Apriltags scattered through the environment using the Apriltag library.
+Then the duckiebot detects crosswalks on the road, and wait for some unknown amount of time until they are empty to continue driving.
+Finally, we implemented an autonomous safe navigation behavior on our Duckiebot. Specifically, while driving we must be able to detect a broken-down Duckiebot, pause, and maneuver around it
 
 ---
 
-## Part 1: Computer Vision👀
+## Part 1: AprilTag Detection👀
 
-### Camera Distortion Correction and Color Detection
-**File:** `packages/computer_vision/src/lane_detection.py`  
-**Description:** Corrects camera distortion using intrinsic parameters, detects blue, red, and green lanes using HSV color thresholds, performs contouring. Publishes to processed_image.
+### AprilTag detection
+**File:** `packages/ex4/src/apriltag_detection.py`  
+**Description:** Performs image preprocessing, detects AprilTags, performs contouring and numbering augmentation. Publishes to processed_image and detected_tag_id
 
-### Lane Behavior
-**File:** `packages/computer_vision/src/lane_based_behavior_controller.py`  
-**Description:** executes lane-specific behaviors (e.g., stopping, turning, signaling LEDs).
+### AprilTag Behavior
+**File:** `packages/ex4/src/apriltag_behaviour.py`  
+**Description:** Lane-follows, detects redline and stops for varying amount of time based on the last apriltag detected (subscribe to detected_tag_id)
 
 ▶ **Launch Command:**
 ```bash
-dts devel run -H ROBOT_NAME -L lane-based-behavior
+dts devel run -H ROBOT_NAME -L apriltag-behaviour
 ```
 
 ---
 
-## Part 2: Controllers🕹️
+## Part 2: PeDuckstrian Crosswalks
 
 
-**File:** `packages/computer_vision/src/lane_following_controller.py`  
-**Description:** Implements P, PD, and PID controllers for lane following along a straight path for 1.5 meters.
+**File:** `packages/ex4/src/crosswalk.py`  
+**Description:** Detects crosswalk and waits for PeDuckstrians to finish crossing
 
 ▶ **Launch Command:**
 ```bash
-dts devel run -H ROBOT_NAME -L lane-follow-controller
+dts devel run -H ROBOT_NAME -L crosswalk
 ```
 
 ---
 
-## Part 3: Lane Following🏁
+## Part 3: Safe Navigation
 
-### Lane Following Node
-**File:** `packages/computer_vision/src/lane_following.py`  
-**Description:** Integrates computer vision and controllers to perform full-lap lane following using OpenCV.
-
-▶ **Launch Command:**
-```bash
-dts devel run -H ROBOT_NAME -L lane-following
-```
-
----
-
-## Bonus: English Driving☕️
-
-**File:** `packages/computer_vision/src/english_driving.py`  
-**Description:** This is almost identical to lane_following.py, except the duckiebot drives on the left side of the road instead. It also performs full-lap lane following.
+**File:** `packages/ex4/src/safe_driving.py`  
+**Description:** Detects the back of a broken down duckiebot and moves around it
 
 ▶ **Launch Command:**
 ```bash
-dts devel run -H ROBOT_NAME -L english-driving
+dts devel run -H ROBOT_NAME -L safe-driving
 ```
 
 ---
