@@ -27,9 +27,13 @@ dts devel run -H ROBOT_NAME -L apriltag-behaviour
 
 ## Part 2: PeDuckstrian Crosswalks🚸
 
-
+### Crosswalk and PeDuckstrian Detection
 **File:** `packages/ex4/src/crosswalk.py`  
-**Description:** Detects crosswalk and waits for PeDuckstrians to finish crossing
+**Description:** Detects crosswalks and peDcukstrians. Waits until crosswalk is safe before signaling to the navigation node to continue driving.
+
+### Crosswalk Navigation
+**File:** `packages/ex4/src/crosswalk_navigation.py`  
+**Description:** A lane following node adapted to receive processed images and navigation commands from the Crosswalk and PeDuckstrian node.
 
 ▶ **Launch Command:**
 ```bash
