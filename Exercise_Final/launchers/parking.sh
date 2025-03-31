@@ -1,15 +1,23 @@
 #!/bin/bash
 
+
 source /environment.sh
 
-# initialize launch file
+
 dt-launchfile-init
 
-# Read parking stall number from environment variable
-PARKING_STALL=${PARKING_STALL:-1}  # Default to stall 1 if not specified
 
-# Pass the parking stall number to the Python script
-rosrun ex4 parking.py ${PARKING_STALL}
+# Read from both possible sources (env var and command line)
+PARKING_STALL=${PARKING_STALL:-1}  # Default to 1 if not set
 
-# wait for app to end
+
+# Debug output
+# dts devel run -H csc22928 -L parking -- --env PARKING_STALL=3
+echo "Environment PARKING_STALL: ${PARKING_STALL}"
+echo "Command line args: $@"
+
+
+rosrun ex4 parking.py "$PARKING_STALL"
+
+
 dt-launchfile-join
