@@ -58,6 +58,21 @@ class DuckiebotFollowerNode(DTROS):
         self.kp_distance = 0.5  # Proportional gain for distance control
         self.kp_centering = 0.3  # Proportional gain for centering
         
+        # Lane following parameters
+        self.controller_type = 'PID'
+        self.kp = 1.0  # Proportional gain
+        self.kd = 0.1  # Derivative gain
+        self.ki = 0.01  # Integral gain
+        self.prev_error = 0
+        self.integral = 0
+        self.last_time = time.time()
+        
+        # Lane detection thresholds
+        self.lower_yellow = np.array([20, 100, 100])
+        self.upper_yellow = np.array([30, 255, 255])
+        self.lower_white = np.array([0, 0, 150])
+        self.upper_white = np.array([180, 60, 255])
+        
         # Vehicle tracking variables
         self.last_detection_time = 0
         self.detection_timeout = 1.0  # seconds
@@ -134,14 +149,13 @@ class DuckiebotFollowerNode(DTROS):
         centroid_x = centroid[0]
         
         # Estimate distance based on pattern size (empirical calibration needed)
-        # This is a simplified approach - you should calibrate this for your setup
         pattern_width_pixels = np.max(centers[:,:,0]) - np.min(centers[:,:,0])
         distance = (0.1 * 320) / pattern_width_pixels  # 0.1 is a scaling factor to adjust
         
         return True, distance, centroid_x
 
-    def calculate_wheel_speeds(self, distance_error, centroid_error):
-        """Calculate wheel speeds based on distance and centering errors"""
+    def calculate_wheel_speeds_follow(self, distance_error, centroid_error):
+        """Calculate wheel speeds for following another Duckiebot"""
         # Distance control term - adjust speed based on distance error
         distance_term = self.kp_distance * (distance_error)
         
@@ -160,6 +174,117 @@ class DuckiebotFollowerNode(DTROS):
         left_speed = np.clip(left_speed, self.min_speed, self.max_speed)
         right_speed = np.clip(right_speed, self.min_speed, self.max_speed)
         
+        return left_speed, right_speed
+
+    def detect_lane_color(self, image):
+        hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        masks = {
+            "yellow": cv2.inRange(hsv_image, self.lower_yellow, self.upper_yellow),
+            "white": cv2.inRange(hsv_image, self.lower_white, self.upper_white)
+        }
+        return masks
+
+    def detect_lane(self, image, masks):
+        colors = {"yellow": (0, 255, 255), "white": (255, 255, 255)}
+        detected_white, detected_yellow = False, False
+        yellow_max_x = 0
+        white_min_x = 1000
+
+        for color_name, mask in masks.items():
+            if color_name == "white":
+                detected_white = True
+            elif color_name == "yellow":
+                detected_yellow = True
+            else:
+                continue
+
+            masked_color = cv2.bitwise_and(image, image, mask=mask)
+            gray = cv2.cvtColor(masked_color, cv2.COLOR_BGR2GRAY)
+            _, thresh = cv2.threshold(gray, 50, 255, cv2.THRESH_BINARY)
+            contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+            # For white blocks, find the rightmost one
+            if color_name == "white":
+                rightmost_x = -1
+                rightmost_contour = None
+
+                for contour in contours:
+                    if cv2.contourArea(contour) > 200:  # Filter small contours
+                        x, y, w, h = cv2.boundingRect(contour)
+                        if x + w / 2 > rightmost_x:  # Check if this is the rightmost block
+                            rightmost_x = x + w / 2
+                            rightmost_contour = contour
+
+                # Only process the rightmost white block
+                if rightmost_contour is not None:
+                    x, y, w, h = cv2.boundingRect(rightmost_contour)
+                    white_min_x = max(min(white_min_x, x + w / 2), image.shape[1] // 2)
+                    cv2.rectangle(image, (x, y), (x + w, y + h), colors[color_name], 2)
+
+            # For yellow blocks, process all of them
+            elif color_name == "yellow":
+                for contour in contours:
+                    if cv2.contourArea(contour) > 200:  # Filter small contours
+                        x, y, w, h = cv2.boundingRect(contour)
+                        yellow_max_x = min(max(yellow_max_x, x + w / 2), image.shape[1] // 2)
+                        cv2.rectangle(image, (x, y), (x + w, y + h), colors[color_name], 2)
+
+        final_yellow_x = yellow_max_x if detected_yellow else 0
+        final_white_x = white_min_x if detected_white else image.shape[1]
+        return image, final_yellow_x, final_white_x
+
+    def calculate_lane_error(self, image):
+        """Detects lane and computes lateral offset from center."""
+        undistorted_image = self.undistort_image(image)
+        preprocessed_image = cv2.resize(undistorted_image, (320, 240))
+        masks = self.detect_lane_color(preprocessed_image)
+        lane_detected_image, yellow_x, white_x = self.detect_lane(preprocessed_image, masks)
+
+        v_mid_line = self.extrinsic_transform(preprocessed_image.shape[1] // 2, 0)
+        yellow_line = self.extrinsic_transform(yellow_x, 0)
+        white_line = self.extrinsic_transform(white_x, 0)
+        yellow_line_displacement = max(float(self.calculate_distance(yellow_line, v_mid_line)), 0.0)
+        white_line_displacement = max(float(self.calculate_distance(v_mid_line, white_line)), 0)
+
+        error = yellow_line_displacement - white_line_displacement
+        return error
+
+    def extrinsic_transform(self, u, v):
+        pixel_coord = np.array([u, v, 1]).reshape(3, 1)
+        world_coord = np.dot(self.homography, pixel_coord)
+        world_coord /= world_coord[2]
+        return world_coord[:2].flatten()
+
+    def calculate_distance(self, l1, l2):
+        return np.linalg.norm(l2 - l1)
+
+    def pid_control(self, error):
+        current_time = time.time()
+        dt = current_time - self.last_time
+        if dt <= 0:
+            dt = 1e-5  # Avoid division by zero
+
+        # Calculate integral term with windup protection
+        self.integral += error * dt
+        integral_max = 1.0  # Tune this value based on your system
+        self.integral = np.clip(self.integral, -integral_max, integral_max)
+
+        # Calculate derivative term
+        derivative = (error - self.prev_error) / dt
+
+        control = self.kp * error + self.ki * self.integral + self.kd * derivative
+
+        # Update previous values for next iteration
+        self.prev_error = error
+        self.last_time = current_time
+
+        return control
+
+    def calculate_wheel_speeds_lane(self, error):
+        """Calculate wheel speeds for lane following"""
+        control = self.pid_control(error)
+        left_speed = max(min(self.base_speed - control, self.max_speed), 0)
+        right_speed = max(min(self.base_speed + control, self.max_speed), 0)
         return left_speed, right_speed
 
     def image_callback(self, msg):
@@ -182,7 +307,7 @@ class DuckiebotFollowerNode(DTROS):
                 centroid_error = (self.target_centroid_x - self.image_center_x) / self.image_center_x
                 
                 # Calculate and publish wheel commands
-                left_speed, right_speed = self.calculate_wheel_speeds(distance_error, centroid_error)
+                left_speed, right_speed = self.calculate_wheel_speeds_follow(distance_error, centroid_error)
                 
                 # If we're too close, stop
                 if distance < SAFE_DISTANCE:
@@ -195,21 +320,32 @@ class DuckiebotFollowerNode(DTROS):
                 self.pub_cmd.publish(cmd)
                 
                 # Draw detection info on image
-                cv2.putText(image, f"Distance: {distance:.2f}m", (10, 30), 
+                cv2.putText(image, "MODE: FOLLOWING", (10, 30), 
                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-                cv2.putText(image, f"Speed: L={left_speed:.2f}, R={right_speed:.2f}", (10, 60), 
+                cv2.putText(image, f"Distance: {distance:.2f}m", (10, 60), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                cv2.putText(image, f"Speed: L={left_speed:.2f}, R={right_speed:.2f}", (10, 90), 
                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
             else:
-                # If no detection recently, stop
+                # If no detection recently, switch to lane following
                 if current_time - self.last_detection_time > self.detection_timeout:
+                    # Calculate lane following error
+                    error = self.calculate_lane_error(image)
+                    left_speed, right_speed = self.calculate_wheel_speeds_lane(error)
+                    
                     cmd = WheelsCmdStamped()
-                    cmd.vel_left = 0
-                    cmd.vel_right = 0
+                    cmd.vel_left = left_speed
+                    cmd.vel_right = right_speed
                     self.pub_cmd.publish(cmd)
-                    rospy.logwarn("No Duckiebot detected - stopping")
-                
-                cv2.putText(image, "No Duckiebot detected", (10, 30), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                    
+                    cv2.putText(image, "MODE: LANE FOLLOWING", (10, 30), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                    cv2.putText(image, f"Speed: L={left_speed:.2f}, R={right_speed:.2f}", (10, 60), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                else:
+                    # If we just lost detection but within timeout, maintain last command
+                    cv2.putText(image, "MODE: SEARCHING", (10, 30), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
             
             # Publish processed image
             self.image_pub.publish(self.bridge.cv2_to_imgmsg(image, encoding="bgr8"))
