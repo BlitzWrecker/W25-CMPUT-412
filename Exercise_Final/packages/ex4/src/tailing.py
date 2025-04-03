@@ -113,6 +113,11 @@ class DuckiebotFollowerNode(DTROS):
         self._ticks_right_init = None
         self._ticks_left = None
         self._ticks_right = None
+
+        # Limiting the camera frame rate to 3 so we don't lag the hell out
+        rospy.wait_for_service("misc_ctrl_srv", timeout=1)
+        self.misc_ctrl = rospy.ServiceProxy("misc_ctrl_srv", MiscCtrlCMD)
+        self.misc_ctrl("set_fr", 3)
         
         rospy.on_shutdown(self.on_shutdown)
         rospy.loginfo("Duckiebot Follower Node Initialized")
