@@ -240,8 +240,8 @@ class DuckiebotFollowerNode(DTROS):
 
     def calculate_lane_error(self, image):
         """Detects lane and computes lateral offset from center."""
-        undistorted_image = self.undistort_image(image)
-        preprocessed_image = cv2.resize(undistorted_image, (320, 240))
+        # undistorted_image = self.undistort_image(image)
+        preprocessed_image = cv2.resize(image, (320, 240))
         masks = self.detect_lane_color(preprocessed_image)
         lane_detected_image, yellow_x, white_x = self.detect_lane(preprocessed_image, masks)
 
