@@ -115,6 +115,10 @@ class DuckiebotFollowerNode(DTROS):
         self._ticks_left = None
         self._ticks_right = None
 
+        # Frame rate control
+        self.last_processed_time = 0
+        self.min_processing_interval = 0.05  # 20 Hz max processing rate
+        
         # Limiting the camera frame rate to 3 so we don't lag the hell out
         rospy.wait_for_service("misc_ctrl_srv", timeout=1)
         self.misc_ctrl = rospy.ServiceProxy("misc_ctrl_srv", MiscCtrlCMD)
@@ -139,7 +143,11 @@ class DuckiebotFollowerNode(DTROS):
 
     def detect_vehicle(self, image):
         """Detects the rear pattern of another Duckiebot and returns distance and centroid"""
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        # Use a smaller region of interest for faster processing
+        h, w = image.shape[:2]
+        roi = image[int(h*0.3):int(h*0.8), int(w*0.2):int(w*0.8)]
+        
+        gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
         (detection, centers) = cv2.findCirclesGrid(
             gray,
             patternSize=tuple(self.circlepattern_dims),
@@ -150,9 +158,9 @@ class DuckiebotFollowerNode(DTROS):
         if not detection:
             return False, None, None
         
-        # Calculate centroid of the pattern
+        # Calculate centroid of the pattern (adjust for ROI offset)
         centroid = np.mean(centers, axis=0)[0]
-        centroid_x = centroid[0]
+        centroid_x = centroid[0] + w*0.2  # Add back the ROI x offset
         
         # Estimate distance based on pattern size (empirical calibration needed)
         pattern_width_pixels = np.max(centers[:,:,0]) - np.min(centers[:,:,0])
@@ -183,12 +191,14 @@ class DuckiebotFollowerNode(DTROS):
         return left_speed, right_speed
 
     def detect_lane_color(self, image):
-        hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        # Resize image first for faster processing
+        small_img = cv2.resize(image, (320, 240))
+        hsv_image = cv2.cvtColor(small_img, cv2.COLOR_BGR2HSV)
         masks = {
             "yellow": cv2.inRange(hsv_image, self.lower_yellow, self.upper_yellow),
             "white": cv2.inRange(hsv_image, self.lower_white, self.upper_white)
         }
-        return masks
+        return masks, small_img
 
     def detect_lane(self, image, masks):
         colors = {"yellow": (0, 255, 255), "white": (255, 255, 255)}
@@ -287,17 +297,21 @@ class DuckiebotFollowerNode(DTROS):
         return left_speed, right_speed
 
     def image_callback(self, msg):
+        # Skip processing if we're still processing the last frame
+        current_time = time.time()
+        if current_time - self.last_processed_time < self.min_processing_interval:
+            return
+            
         try:
             # Convert compressed image to OpenCV format
             image = self.bridge.compressed_imgmsg_to_cv2(msg, desired_encoding="bgr8")
-            image = cv2.resize(image, (640, 480))  # Work with full resolution for better detection
             
             # Detect vehicle
             detected, distance, centroid_x = self.detect_vehicle(image)
-            current_time = rospy.get_time()
+            current_ros_time = rospy.get_time()
             
             if detected:
-                self.last_detection_time = current_time
+                self.last_detection_time = current_ros_time
                 self.current_distance = distance
                 self.target_centroid_x = centroid_x
                 
@@ -327,7 +341,7 @@ class DuckiebotFollowerNode(DTROS):
                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
             else:
                 # If no detection recently, switch to lane following
-                if current_time - self.last_detection_time > self.detection_timeout:
+                if current_ros_time - self.last_detection_time > self.detection_timeout:
                     # Calculate lane following error
                     error = self.calculate_lane_error(image)
                     left_speed, right_speed = self.calculate_wheel_speeds_lane(error)
@@ -346,11 +360,17 @@ class DuckiebotFollowerNode(DTROS):
                     cv2.putText(image, "MODE: SEARCHING", (10, 30), 
                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
             
-            # Publish processed image
-            self.image_pub.publish(self.bridge.cv2_to_imgmsg(image, encoding="bgr8"))
+            # Publish processed image (if needed)
+            try:
+                self.image_pub.publish(self.bridge.cv2_to_imgmsg(image, encoding="bgr8"))
+            except:
+                pass
+                
+            self.last_processed_time = current_time
             
         except Exception as e:
             rospy.logerr(f"Error in image processing: {str(e)}")
+            self.last_processed_time = current_time
 
     def on_shutdown(self):
         cmd = WheelsCmdStamped()
