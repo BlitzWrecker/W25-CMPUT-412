@@ -100,8 +100,9 @@ class DuckiebotFollowerNode(DTROS):
         self.image_sub = rospy.Subscriber(f"/{self._vehicle_name}/camera_node/image/compressed", 
                                          CompressedImage, self.image_callback)
         self.image_pub = rospy.Publisher(f"/{self._vehicle_name}/duckiebot_follower_processed_image", 
-                                        Image, queue_size=10)
-        
+                                        Image, queue_size=1)
+        self.lane_detection_image_pub = rospy.Publisher(f"/{self._vehicle_name}/lane_detection_image",
+                                                       Image, queue_size=1)
         # Encoder subscribers
         self._left_encoder_topic = f"/{self._vehicle_name}/left_wheel_encoder_node/tick"
         self._right_encoder_topic = f"/{self._vehicle_name}/right_wheel_encoder_node/tick"
@@ -203,49 +204,42 @@ class DuckiebotFollowerNode(DTROS):
             else:
                 continue
 
+
             masked_color = cv2.bitwise_and(image, image, mask=mask)
             gray = cv2.cvtColor(masked_color, cv2.COLOR_BGR2GRAY)
             _, thresh = cv2.threshold(gray, 50, 255, cv2.THRESH_BINARY)
             contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-            # For white blocks, find the rightmost one
-            if color_name == "white":
-                rightmost_x = -1
-                rightmost_contour = None
+            for contour in contours:
+                if cv2.contourArea(contour) > 200:  # Filter small contours
+                    x, y, w, h = cv2.boundingRect(contour)
 
-                for contour in contours:
-                    if cv2.contourArea(contour) > 200:  # Filter small contours
-                        x, y, w, h = cv2.boundingRect(contour)
-                        if x + w / 2 > rightmost_x:  # Check if this is the rightmost block
-                            rightmost_x = x + w / 2
-                            rightmost_contour = contour
 
-                # Only process the rightmost white block
-                if rightmost_contour is not None:
-                    x, y, w, h = cv2.boundingRect(rightmost_contour)
-                    white_min_x = max(min(white_min_x, x + w / 2), image.shape[1] // 2)
+                    if color_name == "yellow":
+                        yellow_max_x = min(max(yellow_max_x, x + w / 2), image.shape[1] // 2)
+                    elif color_name == "white":
+                        white_min_x = max(min(white_min_x, x + w / 2), image.shape[1] // 2)
+                    else:
+                        raise ValueError
+
+
                     cv2.rectangle(image, (x, y), (x + w, y + h), colors[color_name], 2)
 
-            # For yellow blocks, process all of them
-            elif color_name == "yellow":
-                for contour in contours:
-                    if cv2.contourArea(contour) > 200:  # Filter small contours
-                        x, y, w, h = cv2.boundingRect(contour)
-                        yellow_max_x = min(max(yellow_max_x, x + w / 2), image.shape[1] // 2)
-                        cv2.rectangle(image, (x, y), (x + w, y + h), colors[color_name], 2)
 
         final_yellow_x = yellow_max_x if detected_yellow else 0
         final_white_x = white_min_x if detected_white else image.shape[1]
+        # rospy.loginfo(f"{final_yellow_x}, {final_white_x}")
         return image, final_yellow_x, final_white_x
 
     def calculate_lane_error(self, image):
         """Detects lane and computes lateral offset from center."""
-        # undistorted_image = self.undistort_image(image)
-        preprocessed_image = cv2.resize(image, (320, 240))
-        masks = self.detect_lane_color(preprocessed_image)
-        lane_detected_image, yellow_x, white_x = self.detect_lane(preprocessed_image, masks)
+        height, width = image.shape[:2]
+        cropped_image = image[math.ceil(height / 1.5):height, :]
+        masks = self.detect_lane_color(cropped_image)
+        lane_detected_image, yellow_x, white_x = self.detect_lane(cropped_image, masks)
 
-        v_mid_line = self.extrinsic_transform(preprocessed_image.shape[1] // 2, 0)
+        self.lane_detection_image_pub.publish(self.bridge.cv2_to_imgmsg(lane_detected_image, encoding="bgr8"))
+        v_mid_line = self.extrinsic_transform(cropped_image.shape[1] // 2, 0)
         yellow_line = self.extrinsic_transform(yellow_x, 0)
         white_line = self.extrinsic_transform(white_x, 0)
         yellow_line_displacement = max(float(self.calculate_distance(yellow_line, v_mid_line)), 0.0)
