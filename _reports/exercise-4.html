@@ -42,7 +42,7 @@ date: 2025-04-15
   <iframe width="560" height="315" src="https://www.youtube.com/embed/ufpAvzWERo8?si=4CIvJGPhBwOwN2TF" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
   <article class="ex3-article">
     <p>
-      Screen recording of the rqt_image_view showing the image augmentations applied when detecting AprilTags.
+      Screen recording of the <code>rqt_image_view</code> showing the image augmentations applied when detecting AprilTags.
     </p>
     <p>
       This video shows the Duckiebot detecting the closest AprilTag, drawing a box around it, and displaying its corresponding id number.
@@ -53,7 +53,7 @@ date: 2025-04-15
 <h2>Image Processing Steps</h2>
 <ol>
   <li>
-    <b>Image Conversion from CompressedImage to OpenCV Format</b>: The incoming image is in a compressed format (ROS CompressedImage), so it must be converted to an OpenCV-compatible format (e.g., a NumPy array) for further processing.
+    <b>Image Conversion from CompressedImage to OpenCV Format</b>: The incoming image is in a compressed format (ROS <code>CompressedImage</code>), so it must be converted to an OpenCV-compatible format (e.g., a NumPy array) for further processing.
   </li>
   <li>
     <b>Image Undistortion</b>: Camera lenses introduce distortion, which can affect the accuracy of AprilTag detection. Undistorting the image using the camera's intrinsic parameters ensures geometric correctness, improving detection reliability.
@@ -62,7 +62,7 @@ date: 2025-04-15
     <b>Grayscale Conversion</b>: AprilTag detection works on grayscale images. Converting the image to grayscale simplifies processing and reduces computational overhead, as color information is unnecessary for detection.
   </li>
   <li>
-    <b>AprilTag Detection</b>: This step detects AprilTags in the grayscale image using the dt_apriltags library. It provides tag ID, corners, and pose information, essential for the node's functionality.
+    <b>AprilTag Detection</b>: This step detects AprilTags in the grayscale image using the <code>dt_apriltags</code> library. It provides tag ID, corners, and pose information, essential for the node's functionality.
   </li>
   <li>
     <b>Closest Tag Selection</b>: If multiple tags are detected, the node selects the closest one based on the Euclidean distance of the translation vector. This ensures the robot focuses on the most relevant tag in its vicinity.
@@ -80,19 +80,19 @@ date: 2025-04-15
 <h2>Explanation of the process of detecting apriltags</h2>
 <ol>
   <li>
-    <b>Image Acquisition</b>: The node subscribes to a ROS topic (/camera_node/image/compressed) to receive compressed images from the camera. This step captures the raw image data from the camera, which serves as the input for AprilTag detection.
+    <b>Image Acquisition</b>: The node subscribes to a ROS topic (<code>/camera_node/image/compressed</code>) to receive compressed images from the camera. This step captures the raw image data from the camera, which serves as the input for AprilTag detection.
   </li>
   <li>
-    <b>Image Conversion</b>: The compressed image is converted from a ROS CompressedImagemessage to an OpenCV-compatible format (e.g., a NumPy array) using the cv_bridge library. OpenCV is used for image processing, so the image must be in a format that OpenCV can manipulate.
+    <b>Image Conversion</b>: The compressed image is converted from a ROS <code>CompressedImage</code> message to an OpenCV-compatible format (e.g., a NumPy array) using the <code>cv_bridge</code> library. OpenCV is used for image processing, so the image must be in a format that OpenCV can manipulate.
   </li>
   <li>
-    <b>Image Undistortion</b>: The image is undistorted using the camera's intrinsic parameters (camera_matrix and distortion_coeffs), which are obtained from the ROS CameraInfo message. Camera lenses introduce distortion, which can affect the accuracy of AprilTag detection. Undistorting the image corrects these distortions, ensuring that the image is geometrically accurate.
+    <b>Image Undistortion</b>: The image is undistorted using the camera's intrinsic parameters (<code>camera_matrix</code> and <code>distortion_coeffs</code>), which are obtained from the ROS <code>CameraInfo</code> message. Camera lenses introduce distortion, which can affect the accuracy of AprilTag detection. Undistorting the image corrects these distortions, ensuring that the image is geometrically accurate.
   </li>
   <li>
-    <b>Grayscale Conversion</b>: The undistorted image is converted from color (BGR) to grayscale using OpenCV's cvtColor function. AprilTag detection works on grayscale images, so this step simplifies the image data and reduces computational overhead.
+    <b>Grayscale Conversion</b>: The undistorted image is converted from color (BGR) to grayscale using OpenCV's <code>cvtColor</code> function. AprilTag detection works on grayscale images, so this step simplifies the image data and reduces computational overhead.
   </li>
   <li>
-    <b>AprilTag Detection</b>: This step identifies the tags in the image, extracts their IDs, and estimates their positions in the environment. The grayscale image is passed to the dt_apriltags detector, which performs the following steps.
+    <b>AprilTag Detection</b>: This step identifies the tags in the image, extracts their IDs, and estimates their positions in the environment. The grayscale image is passed to the <code>dt_apriltags</code> detector, which performs the following steps.
     <ol>
       <li>
         <b>Edge Detection</b>: The detector identifies edges in the image to locate potential tag candidates.
@@ -101,7 +101,7 @@ date: 2025-04-15
         <b>Quad Decoding</b>: It decodes the detected quads (four-sided polygons) to determine if they correspond to valid AprilTags.
       </li>
       <li>
-        <b>Tag Decoding</b>: The detector extracts the binary payload from the tag and matches it against known tag families (e.g., tag36h11).
+        <b>Tag Decoding</b>: The detector extracts the binary payload from the tag and matches it against known tag families (e.g., <code>tag36h11</code>).
       </li>
       <li>
         <b>Pose Estimation</b>: For each detected tag, the detector estimates its 3D pose (position and orientation) relative to the camera using the camera's intrinsic parameters and the known tag size.
@@ -112,7 +112,7 @@ date: 2025-04-15
     <b>Closest Tag Selection</b>
     <ul>
       <li>
-        <b>Process</b>: If multiple tags are detected, the node calculates the Euclidean distance of each tag's translation vector (pose_t) and selects the closest one.
+        <b>Process</b>: If multiple tags are detected, the node calculates the Euclidean distance of each tag's translation vector (<code>pose_t</code>) and selects the closest one.
       </li>
       <li>
         <b>Purpose</b>: This ensures that the robot focuses on the most relevant tag in its immediate vicinity, which is useful for navigation or interaction tasks.
@@ -123,7 +123,7 @@ date: 2025-04-15
     <b>Image Augmentation</b>
     <ul>
       <li>
-        <b>Process</b>: The node augments the original image by drawing bounding boxes and tag IDs for the detected tags using OpenCV functions like cv2.line and cv2.putText.
+        <b>Process</b>: The node augments the original image by drawing bounding boxes and tag IDs for the detected tags using OpenCV functions like <code>cv2.line</code> and <code>cv2.putText</code>.
       </li>
       <li>
         <b>Purpose</b>: This step provides visual feedback, making it easier to debug and verify the detection results.
@@ -134,7 +134,7 @@ date: 2025-04-15
     <b>Publishing Results</b>
     <ul>
       <li>
-        <b>Process</b>: The augmented image is published as a ROS Image message for visualization, and the detected tag ID is published as a ROS Int32 message for use by other nodes.
+        <b>Process</b>: The augmented image is published as a ROS Image message for visualization, and the detected tag ID is published as a ROS <code>Int32</code> message for use by other nodes.
       </li>
       <li>
         <b>Purpose</b>: This allows other parts of the system (e.g., navigation or control nodes) to use the detection results.
