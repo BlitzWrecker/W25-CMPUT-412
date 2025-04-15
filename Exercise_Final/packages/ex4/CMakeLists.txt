@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(ex4)
+project(final)
 
 find_package(catkin REQUIRED COMPONENTS
   rospy
@@ -12,11 +12,13 @@ find_package(catkin REQUIRED COMPONENTS
 add_service_files(
   FILES
   MiscCtrlCMD.srv
+  NavigateCMD.srv
+  ImageDetect.srv
 )
 
 add_message_files(
   FILES
-  NavigateCMD.msg
+  LaneFollowCMD.msg
 )
 
 ## Generate messages
