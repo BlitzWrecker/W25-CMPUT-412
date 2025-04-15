@@ -52,7 +52,7 @@ class LaneFollowingNode(DTROS):
         self.bridge = CvBridge()
         self._vehicle_name = os.environ['VEHICLE_NAME']
         self.pub_cmd = rospy.Publisher(f"/{self._vehicle_name}/wheels_driver_node/wheels_cmd", WheelsCmdStamped, queue_size=1)
-        self.image_sub = rospy.Subscriber(f"/{self._vehicle_name}/crosswalk_detection_res", NavigateCMD, self.image_callback)
+        self.image_sub = rospy.Subscriber(f"/{self._vehicle_name}/lane_follow_input", NavigateCMD, self.image_callback)
         self.image_pub = rospy.Publisher(f"/{self._vehicle_name}/lane_following_processed_image", Image, queue_size=10)
 
         self.lower_yellow = np.array([20, 100, 100])
