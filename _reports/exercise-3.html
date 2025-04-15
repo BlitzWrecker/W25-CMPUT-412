@@ -202,6 +202,105 @@ date: 2025-03-09
   </article>
 </section>
 
+<section class="ex3-section">
+  <article class="ex3-article">
+    <img src="{{ base_path }}/images/ex3-p-con.png" alt="Source code for the Proportion controller" style="display: block; margin-left: auto; margin-right: auto; float: none; border-radius: 1em">
+  </article>
+  <article class="ex3-article">
+    <h1>P Controller</h1>
+    <div>
+      <b>Pros:</b>
+    </div>
+    <ul>
+      <li>
+        Simple to implement and computationally efficient.
+      </li>
+      <li>
+        Provides a quick response to errors.
+      </li>
+    </ul>
+    <div>
+      <b>Cons:</b>
+    </div>
+    <ul>
+      <li>
+        This can lead to steady-state error (i.e., the system may not fully correct itself).
+      </li>
+      <li>
+        High proportional gain can cause oscillations or instability.
+      </li>
+    </ul>
+  </article>
+</section>
+
+<section class="ex3-section">
+  <article class="ex3-article">
+    <img src="{{ base_path }}/images/ex3-pd-con.png" alt="Source code for the Proportion-Derivative controller" style="display: block; margin-left: auto; margin-right: auto; float: none; border-radius: 1em">
+  </article>
+  <article class="ex3-article">
+    <h1>PD Controller</h1>
+    <p>
+      The D term predicts future error by measuring how fast the error is changing. This helps reduce overshooting and oscillations, making the system more stable. However, it can also amplify noise, requiring careful tuning to avoid erratic behavior. Is it beneficial? Yes, when properly tuned, it improves control precision and responsiveness.
+    </p>
+    <div>
+      <b>Pros:</b>
+    </div>
+    <ul>
+      <li>
+        Reduces overshooting and oscillations compared to P controllers.
+      </li>
+      <li>
+        Provides better stability and faster error correction.
+      </li>
+    </ul>
+    <div>
+      <b>Cons:</b>
+    </div>
+    <ul>
+      <li>
+        More sensitive to noise in the system (since the derivative term amplifies high-frequency changes).
+      </li>
+      <li>
+        Requires careful tuning of parameters.
+      </li>
+    </ul>
+  </article>
+</section>
+
+<section class="ex3-section">
+  <article class="ex3-article">
+    <img src="{{ base_path }}/images/ex3-pid-con.png" alt="Source code for the Proportion-Integral-Derivative controller" style="display: block; margin-left: auto; margin-right: auto; float: none; border-radius: 1em">
+  </article>
+  <article class="ex3-article">
+    <h1>PID Controller</h1>
+    <p>
+      The I term accumulates past errors to correct steady-state drift, ensuring the system reaches its target. However, too much integral action can cause integral windup, leading to slow response or instability. Was it useful? It depends, if steady-state error was a problem, the I term helped; otherwise, it might have caused unnecessary lag.
+    </p>
+    <div>
+      <b>Pros:</b>
+    </div>
+    <ul>
+      <li>
+        Minimizes steady-state error with the integral term.
+      </li>
+      <li>
+        Provides smooth and accurate control by combining all three terms.
+      </li>
+    </ul>
+    <div>
+      <b>Cons:</b>
+    </div>
+    <ul>
+      <li>
+        Computationally more complex than P or PD controllers.
+      </li>
+      <li>
+        Requires more tuning effort, and a poorly tuned PID controller can lead to instability.
+      </li>
+    </ul>
+  </article>
+</section>
+
 <h1>Error Calculation</h1>
 <p>
   We will describe, at a high level, how we defined our target and calculated our errors below. Images were edited with Google Drawing for illustration purposes. Note that the description below is for driving on the right side of the center dotted yellow line. The calculations for the English driving system are very similar, where the roles of the white and yellow lines are swapped.
