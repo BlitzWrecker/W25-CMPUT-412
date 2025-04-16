@@ -40,7 +40,7 @@ date: 2025-04-15
 <h1>Apriltag Detection</h1>
 <section class="ex4-section">
   <iframe width="560" height="315" src="https://www.youtube.com/embed/ufpAvzWERo8?si=4CIvJGPhBwOwN2TF" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-  <article class="ex3-article">
+  <article class="ex4-article">
     <p>
       Screen recording of the <code>rqt_image_view</code> showing the image augmentations applied when detecting AprilTags.
     </p>
@@ -142,3 +142,332 @@ date: 2025-04-15
     </ul>
   </li>
 </ol>
+
+<section class="ex4-section">
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/AlwnRQhs8Wc?si=JOhC7jl_wypyGVmY" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+  <article class="ex4-article">
+    <p>
+      A video showing the bot driving straight for at least 30cm. Detecting the "Stop Sign" Apriltag and changing LEDs to red. Stopping before the red line for 3 seconds. Moving straight past the intersection.
+    </p>
+  </article>
+</section>
+
+<section class="ex4-section">
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/_gEnwDfDm2o?si=4K9CGX2FNLY2YLok" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+  <article class="ex4-article">
+    <p>
+      A video showing the bot driving straight for at least 30 cm. Detecting the "T -Intersection" Apriltag and changing LEDs to Blue. Stopping before the red line for 2 seconds. Moving straight past the intersection.
+    </p>
+  </article>
+</section>
+
+<section class="ex4-section">
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/HaTuBxjgRpw?si=0g4JsZ7SWhr_2v_E" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+  <article class="ex4-article">
+    <p>
+      A video showing the bot driving straight for at least 30cm. Detecting the "UofA Tag" Apriltag and changing LEDs to Green. Stopping before the red line for 1 second. Moving straight past the intersection.
+    </p>
+  </article>
+</section>
+
+<section class="ex4-section">
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/NhVYSsJ9LbQ?si=Dol25cIQRxY0vNjw" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+  <article class="ex4-article">
+    <p>
+      A video showing the bot driving straight for at least 30 cm. Detecting no Apriltags and keeping LEDs white. Stopping before the red line for 0.5 seconds. Moving straight past the intersection.
+    </p>
+  </article>
+</section>
+
+<p>
+  <b>Explanation of how the apriltag detection rate affects the intersection detection:</b><br>
+  The AprilTag detection rate of 3 detections per second affects intersection detection in the following ways:
+</p>
+<ul>
+  <li>
+    <b>Latency</b>: Introduces a small delay between detections, which could be problematic for fast-moving robots.
+  </li>
+  <li>
+    <b>Responsiveness</b>: Limits the system's ability to react quickly to dynamic changes.
+  </li>
+</ul>
+<p>
+  For most practical applications (e.g., slow-moving robots in controlled environments), a detection rate of 3 FPS is sufficient for reliable intersection detection. However, for faster robots or more demanding scenarios, a higher detection rate would improve performance.
+</p>
+
+<section class="ex4-section">
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/SApx1KyqLGo?si=lPrizQVPcSBivRkh" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+  <article class="ex4-article">
+    <h1>PeDuckstrian Crosswalks</h1>
+    <p>
+      The video on the left shows the behavior of our Duckiebot upon encountering peDuckstrian crosswalks. Upon encountering an empty crosswalk, our Duckiebot stops for one second before proceeding. Upon encountering a crosswalk with peDuckstrians, our Duckiebot waited until all the peDuckstrian finished crossing before driving past the crosswalk.
+    </p>
+  </article>
+</section>
+
+<h2>Dealing with Double Blue Lines and Detecting PeDuckstrians</h2>
+<section class="ex4-section">
+  <article class="ex4-article">
+    <img src="{{ base_path }}/images/ex4-empty-crosswalk.png" alt="An image with a detected empty crosswalk" style="display: block; margin-left: auto; margin-right: auto; float: none; border-radius: 1em">
+  </article>
+  <article class="ex4-article">
+    <h3>Empty Crosswalk</h3>
+    <div>
+      The image on the left shows our Duckiebot detecting the two blue lines of a crosswalk. We consider an empty crosswalk to be detected when our Duckiebot:
+    </div>
+    <ol>
+      <li>
+        detects at least two blue lines, and
+      </li>
+      <li>
+        does not detect any peDuckstrians.
+      </li>
+    </ol>
+    <p>
+      The warping at the bottom of the image occasionally causes the Duckiebot to detect the bottom blue line as multiple blue lines. Therefore, we do not impose the stricter condition of requiring exactly two blue lines to be detected (and use condition 1 instead). Another method we tried was to crop the lower portion of the image (the warped part) and detect crosswalks on the cropped image (the unwarped part). Empirically, both methods worked well independently, but we combined them since they did not interfere with each other.
+    </p>
+    <div>
+      Our Duckiebot can encounter an empty crosswalk in two different ways:
+    </div>
+    <ol>
+      <li>
+        It drove up to an already empty crosswalk.
+      </li>
+      <li>
+        It stopped before a crosswalk with peDuckstrians but the peDuckstrians have finished crossing.
+      </li>
+    </ol>
+    <p>
+      It is important to distinguish between the two situations because the Duckiebot behaves differently in the two situations.
+    </p>
+  </article>
+</section>
+
+<section class="ex4-section">
+  <article class="ex4-article">
+    <img src="{{ base_path }}/images/ex4-crosswalk-peduckstrians.png" alt="An image showing a crosswalk with PeDuckstrians" style="display: block; margin-left: auto; margin-right: auto; float: none; border-radius: 1em">
+  </article>
+  <article class="ex4-article">
+    <h3>Crosswalk with PeDuckstrians</h3>
+    <div>
+      The image on the left shows our Duckiebot detecting one of the blue lines of a crosswalk and the peDuckstrians on the crosswalk. We consider a crosswalk with peDuckstrians to be detected when our Duckiebot detects:
+    </div>
+    <ol>
+      <li>
+        at least one blue line (the peDuckstrians obstruct the blue line that is farther away), and
+      </li>
+      <li>
+        at least one peDuckstrian.
+      </li>
+    </ol>
+    <p>
+      To detect peDuckstrians, we boldly assumed that they are (mostly) orange. So we simply detect if the camera is capturing any orange objects by specifying a mask for the color orange using an HSV range. This simple and crude strategy is (surprisingly) very effective for this assignment, but any orange objects will be detected as peDuckstrians.
+    </p>
+  </article>
+</section>
+
+<section class="ex4-section">
+  <article class="ex4-article">
+    <img src="{{ base_path }}/images/ex4-no-crosswalks.png" alt="An image with no crosswalks" style="display: block; margin-left: auto; margin-right: auto; float: none; border-radius: 1em">
+  </article>
+  <article class="ex4-article">
+    <h3>No Crosswalks</h3>
+    <p>
+      The image on the left shows our Duckiebot not detecting any crosswalks. Although an empty crosswalk and a crosswalk with peDuckstrians are seen in the image, they are too far away and thus not detected by our Duckiebot.
+    </p>
+  </article>
+</section>
+
+<h3>Crosswalk State Machine</h3>
+<p>We implemented the behavior of our Duckiebot upon encountering a crosswalk using a 4-stage state machine (shown below). </p>
+<img src="{{ base_path }}/images/ex4-cw-state-machine.jpg" alt="The crosswalk state machine" style="display: block; margin-left: auto; margin-right: auto; float: none; border-radius: 1em">
+<div>Our crosswalk state machine has 4 stages:</div>
+<ol>
+  <li>
+    Driving normally.
+  </li>
+  <li>
+    Driving across the crosswalk.
+  </li>
+  <li>
+    Detected an empty crosswalk.
+  </li>
+  <li>
+    Detected a crosswalk with peDuckstrians.
+  </li>
+</ol>
+<p>
+  When we are driving normally, we can either (1) drive up to and detect a crosswalk with peDuckstrians (stage 3), or (2) drive up to and detect an empty crosswalk (stage 2). If we detect a crosswalk with peDuckstrians, we must wait until all the peDuckstrians have crossed, after which we will detect an empty crosswalk (transition from stage 3 to stage 2). After checking that the crosswalk is clear, we proceed to drive across the crosswalk (transition from stage 2 to stage 1). While in stage 1, we will drive until we detect no more blue lines, after which we can be sure that we have cross the crosswalk, and can return to driving normally (transition from stage 1 to stage 0).
+</p>
+<p>
+  To summarize, we had to handle the double blue lines in two cases: detection, and, thereafter, the behaviour.
+</p>
+<div>We <b>detect</b> the crosswalk in two situations:</div>
+<ol>
+  <li>
+    An empty crosswalk &hArr; at least two blue lines.
+    <ul>
+      <li>
+        Due to the warping of the lower portion of the image (even after undistortion), the closer of the two blue lines may be detected as two blue lines. Therefore, we impose a more relaxed condition on the number of detected blue lines (at least two instead of exactly two).
+      </li>
+    </ul>
+  </li>
+  <li>
+    A crosswalk with peDuckstrians &hArr; peDuckstrians and at least one blue line.
+    <ul>
+      <li>
+        We used an orange colour mask defined using an HSV range to detect the peDuckstrians. Very simple to implement, but anything orange will be (falsely) detected as a peDuckstrian.
+      </li>
+      <li>
+        The peDuckstrians may obstruct the blue line that is farther away, causing the Duckiebot not to detect it. Therefore, we impose an even more relaxed condition on the number of detected blue lines (at least one instead of at least two as for an empty crosswalk).
+      </li>
+    </ul>
+  </li>
+</ol>
+<div>
+  We implemented a 4-stage state machine that controls our Duckiebot's <b>behaviour</b> upon encountering a crosswalk:
+</div>
+<ol>
+  <li>
+    Drive until we detect a crosswalk and stop before the crossswalk.
+  </li>
+  <li>
+    After detecting no peDuckstrians, start driving, but ignore the detected blue lines.
+  </li>
+  <li>
+    After driving across the crosswalk, we will not detect blue lines anymore, but we will start detecting blue lines again (so we can detect new crosswalks).
+  </li>
+</ol>
+
+<section class="ex4-section">
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/xSQgFuj524A?si=cVATahu0oFoJMuA-" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+  <article class="ex4-article">
+    <h1>Safe Avoidance Navigation</h1>
+    <p>
+      The video on the left shows the behavior of our Duckiebot encountering a broken bot on the lane. Upon encountering the broken-down bot, our Duckiebot stops for three seconds before proceeding. Next, it will run lane change procedures to avoid and overpass the broken bot in which in will continue lane following.
+    </p>
+  </article>
+</section>
+
+<section class="ex4-section">
+  <article class="ex4-article">
+    <img src="{{ base_path }}/images/ex4-car-detection-code.png" alt="The source code of the vehicle detection algorithm" style="display: block; margin-left: auto; margin-right: auto; float: none; border-radius: 1em">
+  </article>
+  <article class="ex4-article">
+    <h2>Method Used For Detection</h2>
+    <p>
+      For detecting the broken-down Duckiebot, we used a method where the Duckiebot detects the grid-like dots on the back of the other Duckiebot. These dots are a distinctive feature and were easily recognizable by the Duckiebot's front-facing camera. We borrowed an existing implementation from the Duckiebot GitHub repository that was designed to recognize these grid-like patterns.
+    </p>
+    <p>
+      The grid pattern detection was based on visual features, where the camera captured the image and applied computer vision techniques to identify the dots. Once the dots were detected, the Duckiebot knew that it was approaching another bot and took the necessary actions to stop and assess the situation.
+    </p>
+    <p>
+      Other Methods Tried:
+    </p>
+    <p>
+      Blue Color Detection: Initially, we considered using blue color detection to identify the Duckiebot, since the bodies of Duckiebots are typically blue. However, we quickly realized this method could be inconsistent because crosswalk lines are also blue. This would lead to false positives and make it difficult for the Duckiebot to reliably distinguish between the Duckiebot and other blue-colored objects like crosswalks. Because of this, we decided to focus on the grid pattern detection as the more consistent method.
+    </p>
+  </article>
+</section>
+
+<section class="ex4-section">
+  <article class="ex4-article">
+    <img src="{{ base_path }}/images/ex4-car-avoidance-code.png" alt="The source code of the vehicle detection algorithm" style="display: block; margin-left: auto; margin-right: auto; float: none; border-radius: 1em">
+  </article>
+  <article class="ex4-article">
+    <h2>Maneuver</h2>
+    <p>
+      To maneuver around the broken-down Duckiebot, we borrowed code from Exercise 2, which involved making 90-degree turns and moving in a straight line. The following sequence was used:    </p>
+    <p>
+      Turn into the Opposing Lane: After pausing for 3 seconds, the Duckiebot uses the 90-degree turn algorithm to turn into the opposing lane. This maneuver ensures that the bot avoids the broken Duckiebot while maintaining control of its path.    </p>
+    <p>
+      Straight Line Maneuver: After making the 90-degree turn, the Duckiebot moves in a straight line for a safe distance before returning to the proper lane. This allows the bot to pass the stationary Duckiebot without making contact.    </p>
+  </article>
+</section>
+
+<h1>Reflection</h1>
+<h2>What we implemented</h2>
+<p>
+  In this exercise, we focused on implementing perception-based safety mechanisms for mobile robots using Apriltag detection and obstacle avoidance strategies. We integrated computer vision techniques to detect Apriltags, recognize crosswalks, and maneuver safely around obstacles. Additionally, we explored methods for detecting a stationary Duckiebot and executing a safe navigation strategy.
+</p>
+
+<h2>How it works</h2>
+<ol>
+  <li>
+    <b>Apriltag Detection</b>: We used the Apriltag library to detect tags in the environment, applying image preprocessing steps such as undistortion, grayscale conversion, and thresholding to improve detection accuracy.
+  </li>
+  <li>
+    <b>Apriltag-Based Actions</b>: Upon detecting an Apriltag, the robot responded by changing its LED colour and stopping for a predefined time based on the tag type.
+  </li>
+  <li>
+    <b>Crosswalk Detection & PeDuckstrians</b>: The system detects peDuckstrians as orange objects. If the robot detects no peDuckstrians and at least two blue lines, then the robot is detecting a crosswalk with peDuckstrians, and has to wait until all the peDuckstrians are finished crossing. If the robot detects only blue lines and there are at least two of them, then the robot is detecting an empty crosswalk, where it has to wait at least one second before proceeding.
+  </li>
+  <li>
+    <b>Obstacle Avoidance</b>: A broken-down Duckiebot was detected using visual cues, prompting our robot to stop, assess the situation, and carefully navigate around it before resuming lane following.
+  </li>
+  <li>
+    <b>Safe Maneuvering</b>: The robot transitioned smoothly back into its designated lane after successfully avoiding the obstacle.
+  </li>
+</ol>
+
+<h2>What challenges we came across</h2>
+<ol>
+  <li>
+    <b>Noisy AprilTag/lane Detections</b>: Variability in lighting sometimes leads to the duckiebot detecting the base of the AprilTag stand as a white lane
+  </li>
+  <li>
+    <b>Multiple AprilTags Confusion</b>: When multiple AprilTags are in the image, duckiebot behaves unpredictably
+  </li>
+  <li>
+    <b>Crosswalk Double Line Detection</b>: Warping at the bottom of the image occasionally causes the closer blue line to be detected as two blue lines.
+  </li>
+  <li>
+    <b>Crosswalk Behaviour</b>: Implementing the behaviour of our robot at crosswalks needs extra care, so we don't drive across an empty crosswalk without stopping, nor drive over the peDuckstrians.
+  </li>
+  <li>
+    <b>Obstacle Maneuvering</b>: Designing a robust avoidance maneuver without overshooting or colliding with obstacles requires extensive fine-tuning.
+  </li>
+  <li>
+    <b>Processing Delays</b>: Handling multiple vision-based tasks simultaneously introduced minor lag, affecting the real-time response of the robot.
+  </li>
+</ol>
+
+<h2>How we overcame the challenges</h2>
+<ol>
+  <li>
+    <b>Refining AprilTag Processing A</b>: We cropped the image and adjusted HSV thresholds to improve robustness under different lighting conditions.
+  </li>
+  <li>
+    <b>Refining AprilTag Processing B</b>: Only detect the closest AprilTag when multiple are in the image
+  </li>
+  <li>
+    <b>Prevent Warped Crosswalks</b>: Cropped the bottom portion of the image and used the remainder of the image (which is undistorted) for crosswalk detection.
+  </li>
+  <li>
+    <b>4-stage state machine</b>: Introduced a state machine that logically separated the crosswalk behaviour into four hierarchical stages.
+  </li>
+  <li>
+    <b>Incremental Maneuver Testing</b>: We systematically adjusted turning angles and stopping distances to achieve a safe and efficient avoidance path.
+  </li>
+  <li>
+    <b>Performance Optimization</b>: Reduced computational overhead by optimizing vision processing pipelines, ensuring quicker decision-making.
+  </li>
+</ol>
+
+<h1>References</h1>
+<p>
+  <a href="https://github.com/duckietown/dt-core/blob/daffy/packages/duckietown_demos/launch/multi_lane_following.launch" target="_blank">
+    https://github.com/duckietown/dt-core/blob/daffy/packages/duckietown_demos/launch/multi_lane_following.launch
+  </a>
+  <br >
+  <a href="https://github.com/duckietown/dt-core/blob/cc437e834227af82ab5530bcc7e1e6020147ab95/packages/vehicle_detection/src/vehicle_detection_node.py" target="_blank">
+    https://github.com/duckietown/dt-core/blob/cc437e834227af82ab5530bcc7e1e6020147ab95/packages/vehicle_detection/src/vehicle_detection_node.py
+  </a>
+  <br >
+  <a href="https://github.com/duckietown/dt-core/blob/daffy/packages/apriltag/src/apriltag_detector_node.py" target="_blank">
+    https://github.com/duckietown/dt-core/blob/daffy/packages/apriltag/src/apriltag_detector_node.py
+  </a>
+</p>
+<p>
+  Special thanks to Yushu Zhang and Anthony Chen, who were my partners for this exercise.
+</p>
