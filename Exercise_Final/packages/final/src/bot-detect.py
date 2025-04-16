@@ -3,14 +3,12 @@
 import rospy
 import os
 import cv2
-import time
 import math
 import numpy as np
 from duckietown.dtros import DTROS, NodeType
-from sensor_msgs.msg import CompressedImage, Image
+from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 from final.srv import ImageDetect, ImageDetectResponse
-from final.msg import LaneFollowCMD
 
 
 class BotDetectNode(DTROS):
@@ -36,15 +34,12 @@ class BotDetectNode(DTROS):
             -1.0992556526691932,
         ]).reshape(3, 3)
 
-        # Precompute undistortion maps
-        h, w = 480, 640  # Adjust to your image size
-
         # Color detection parameters in HSV format
-        self.lower_blue = np.array([100, 150, 50])
-        self.upper_blue = np.array([140, 255, 255])
+        self.lower_blue = np.array([115, 150, 50])
+        self.upper_blue = np.array([125, 255, 255])
 
         # Set a distance threshhold for detecting lines so we don't detect lines that are too far away
-        self.dist_thresh = 5
+        self.dist_thresh = 10
 
         # Initialize bridge
         self._bridge = CvBridge()
@@ -92,13 +87,13 @@ class BotDetectNode(DTROS):
                 # Estimate the distance of the line from the robot using the distance of the line from the bottom of the screen
                 dist = self.calculate_dist(box_rep, screen_bot)
 
-                if area > 1000 and 1.5 < aspect_ratio < 3.5 and dist <= self.dist_thresh:  # Filter small contours
+                if area > 300 and 1.5 < aspect_ratio < 3.5 and dist <= self.dist_thresh:  # Filter small contours
                     detected = True
-                    cv2.rectangle(image, (x, y), (x + w, y + h), color_name, 2)
+                    cv2.rectangle(image, (x, y), (x + w, y + h), colors[color_name], 2)
                     cv2.putText(image, f"Dist: {dist * 30:.2f} cm", (x, y + h + 10), cv2.FONT_HERSHEY_PLAIN, 1,
-                                color_name)
+                                colors[color_name])
 
-        rospy.loginfo("Nothing detected yet")
+        rospy.loginfo(f"Detected: {detected}")
         return image, detected
 
     def image_callback(self, msg):
@@ -108,10 +103,16 @@ class BotDetectNode(DTROS):
             return ImageDetectResponse(255)
 
         # Convert compressed image to CV2
-        preprocessed_image = self._bridge.compressed_imgmsg_to_cv2(msg.image)
+        preprocessed_image = self._bridge.imgmsg_to_cv2(msg.image, desired_encoding="bgr8")
 
-        masks = self.detect_lane_color(preprocessed_image)
-        processed_image, is_detected = self.detect_broken_bot(preprocessed_image.copy, masks)
+        # Crop the bottom of the image before detecting crosswalks because the bottom of the image is warped even after
+        # undistortion. Another way to achieve the same purpose is to apply a minimum distance threshold, i.e. the blue
+        # lines have to be at least x units away.
+        height, _ = preprocessed_image.shape[:2]
+        cropped_image = preprocessed_image[:math.ceil(height * 0.7), :]
+
+        masks = self.detect_lane_color(cropped_image)
+        processed_image, is_detected = self.detect_broken_bot(cropped_image.copy(), masks)
 
         self.img_pub.publish(self._bridge.cv2_to_imgmsg(processed_image, "bgr8"))
 
