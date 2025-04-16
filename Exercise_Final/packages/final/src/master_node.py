@@ -4,6 +4,8 @@
 import rospy
 import os
 import cv2
+import subprocess
+import time
 import numpy as np
 from duckietown.dtros import DTROS, NodeType
 from sensor_msgs.msg import CompressedImage
@@ -20,7 +22,7 @@ class MasterNode(DTROS):
 
         rospy.wait_for_service("misc_ctrl_srv", timeout=1)
         self.misc_ctrl = rospy.ServiceProxy("misc_ctrl_srv", MiscCtrlCMD)
-        self.misc_ctrl("set_fr", 3)
+        self.misc_ctrl("set_fr", 1)
 
         # define other variables as needed
         self.crosswalk_srv = None
@@ -67,7 +69,7 @@ class MasterNode(DTROS):
         # Used to wait for camera initialization
         self.start_time = rospy.get_time()
 
-        self.stage = 1
+        self.stage = 0
 
         self.num_crosswalks = 0
         self.broken_bot = 0
@@ -103,46 +105,59 @@ class MasterNode(DTROS):
         # Preprocess image
         preprocessed_image = self.preprocess_image(undistorted_image)
 
-        if self.stage == 1:
+        if self.stage == 0:
             self.stage += 1
+
+            subprocess.Popen(['rosrun', 'final', 'lane_follow.py'])
+            time.sleep(5)
+
+            rospy.loginfo("Entering stage 1.")
+        elif self.stage == 1:
+
+            self.stage += 1
+            rospy.loginfo("Entering stage 2.")
         elif self.stage == 2:
             self.stage += 1
-            rospy.wait_for_service("crosswalk_detect_srv", timeout=1)
+
+            subprocess.Popen(['rosrun', 'final', 'crosswalk.py'])
+            rospy.wait_for_service("crosswalk_detect_srv", timeout=30)
             self.crosswalk_srv = rospy.ServiceProxy("crosswalk_detect_srv", ImageDetect)
 
-            rospy.wait_for_service("nav_srv", timeout=1)
+            subprocess.Popen(['rosrun', 'final', 'navigation.py'])
+            rospy.wait_for_service("nav_srv", timeout=30)
             self.nav_srv = rospy.ServiceProxy("nav_srv", NavigateCMD)
 
-            rospy.wait_for_service("bot_detect_srv", timeout=1)
+            subprocess.Popen(['rosrun', 'final', 'bot-detect.py'])
+            rospy.wait_for_service("bot_detect_srv", timeout=30)
             self.bot_detect_srv = rospy.ServiceProxy("bot_detect_srv", ImageDetect)
 
+            rospy.loginfo("Entering stage 3.")
         elif self.stage == 3:
             assert self.nav_srv is not None, "Stage 3: Navigation service is not available."
             assert self.crosswalk_srv is not None, "Stage 3: Crosswalk detection service is not available."
             assert self.bot_detect_srv is not None, "Stage 3: Bot detection service is not available."
 
-            compressed_image = self._bridge.cv2_to_compressed_imgmsg(preprocessed_image)
-            msg = ImageDetect()
-            msg.shutdown = False
-            msg.image = compressed_image
-            crosswalk_res = self.crosswalk_srv(msg)
-            bot_res = self.bot_detect_srv(msg)
+            imgmsg = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding="bgr8")
+            bot_res = self.bot_detect_srv(False, imgmsg)
 
-            self.crosswalk_srv += crosswalk_res.res
-            self.broken_bot += bot_res.res
-
-            if bot_res.res == 1:
+            if bot_res.res == 1 and self.broken_bot < 1:
+                rospy.loginfo("Detected a broken bot")
+                self.broken_bot += 1
                 self.sub.unregister()
 
-                self.nav_srv(NavigateCMD(cmd=2, val1=-1, val2=0, duration=0))
-                self.nav_srv(NavigateCMD(cmd=1, val1=0.5, val2=0.5, duration=0.15))
-                self.nav_srv(NavigateCMD(cmd=2, val1=1, val2=0, duration=0))
-                self.nav_srv(NavigateCMD(cmd=1, val1=0.5, val2=0.5, duration=0.60))
-                self.nav_srv(NavigateCMD(cmd=2, val1=1, val2=0, duration=0))
-                self.nav_srv(NavigateCMD(cmd=1, val1=0.5, val2=0.5, duration=0.15))
-                self.nav_srv(NavigateCMD(cmd=2, val1=-1, val2=0, duration=0))
+                self.nav_srv(2, -1, 0, 0)
+                self.nav_srv(1, 0.5, 0.5, 0.15)
+                self.nav_srv(2, 1, 0, 0)
+                self.nav_srv(1, 0.5, 0.5, 0.45)
+                self.nav_srv(2, 1, 0, 0)
+                self.nav_srv(1, 0.5, 0.5, 0.15)
+                self.nav_srv(2, -1, 0, 0)
 
                 self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
+                return
+
+            crosswalk_res = self.crosswalk_srv(False, imgmsg)
+            self.num_crosswalks += crosswalk_res.res
 
             if self.broken_bot == 1 and self.num_crosswalks == 2:
                 self.stage += 1
@@ -167,6 +182,12 @@ class MasterNode(DTROS):
                     self.nav_srv(shutdown_cmd)
                 except rospy.service.ServiceException:
                     self.nav_srv = None
+
+                rospy.loginfo("Entering stage 4.")
+        elif self.stage == 4:
+            pass
+        else:
+            raise NotImplementedError("Something went wrong: we have entered an unknown stage.")
 
 
 if __name__ == '__main__':
