@@ -9,7 +9,7 @@ import os
 WHEEL_RADIUS = 0.0318  # meters (Duckiebot wheel radius)
 WHEEL_BASE = 0.05  # meters (distance between left and right wheels)
 TICKS_PER_ROTATION = 135  # Encoder ticks per full wheel rotation
-TURN_SPEED = 0.35  # Adjust speed for accuracy
+TURN_SPEED = 0.40  # Adjust speed for accuracy
 
 class NavigationNode(DTROS):
     def __init__(self, node_name):
@@ -152,7 +152,7 @@ class NavigationNode(DTROS):
         cmd = WheelsCmdStamped()
         cmd.vel_left = 0
         cmd.vel_right = 0
-        self.pub_cmd.publish(cmd)
+        self._publisher.publish(cmd)
         rospy.sleep(duration)
 
     def publish_cmd(self, error):
@@ -170,7 +170,7 @@ class NavigationNode(DTROS):
         cmd = WheelsCmdStamped()
         cmd.vel_left = left_speed
         cmd.vel_right = right_speed
-        self.pub_cmd.publish(cmd)
+        self._publisher.publish(cmd)
 
     def execute_cmd(self, msg):
         cmd, val1, val2, duration = msg.cmd, msg.val1, msg.val2, msg.duration
@@ -196,7 +196,7 @@ class NavigationNode(DTROS):
         cmd = WheelsCmdStamped()
         cmd.vel_left = 0
         cmd.vel_right = 0
-        self.pub_cmd.publish(cmd)
+        self._publisher.publish(cmd)
 
 
 if __name__ == '__main__':

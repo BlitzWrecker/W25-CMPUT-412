@@ -9,7 +9,7 @@ from duckietown.dtros import DTROS, NodeType
 from sensor_msgs.msg import Image
 from duckietown_msgs.msg import WheelsCmdStamped
 from cv_bridge import CvBridge
-from ex4.msg import NavigateCMD
+from final.msg import LaneFollowCMD
 import os
 
 
@@ -52,13 +52,13 @@ class LaneFollowingNode(DTROS):
         self.bridge = CvBridge()
         self._vehicle_name = os.environ['VEHICLE_NAME']
         self.pub_cmd = rospy.Publisher(f"/{self._vehicle_name}/wheels_driver_node/wheels_cmd", WheelsCmdStamped, queue_size=1)
-        self.image_sub = rospy.Subscriber(f"/{self._vehicle_name}/lane_follow_input", NavigateCMD, self.image_callback)
+        self.image_sub = rospy.Subscriber(f"/{self._vehicle_name}/lane_follow_input", LaneFollowCMD, self.image_callback)
         self.image_pub = rospy.Publisher(f"/{self._vehicle_name}/lane_following_processed_image", Image, queue_size=10)
 
         self.lower_yellow = np.array([20, 100, 100])
         self.upper_yellow = np.array([30, 255, 255])
         self.lower_white = np.array([0, 0, 150])
-        self.upper_white = np.array([180, 60, 255])
+        self.upper_white = np.array([180, 30, 255])
 
     def detect_lane_color(self, image):
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)

@@ -4,7 +4,7 @@
 import os
 import rospy
 from duckietown.dtros import DTROS, NodeType
-from ex4.srv import MiscCtrlCMD, MiscCtrlCMDResponse
+from final.srv import MiscCtrlCMD, MiscCtrlCMDResponse
 from duckietown_msgs.msg import LEDPattern
 from std_msgs.msg import ColorRGBA
 
