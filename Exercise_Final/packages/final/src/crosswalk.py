@@ -23,21 +23,11 @@ class CrossWalkNode(DTROS):
         # add your code here
         self._vehicle_name = os.environ['VEHICLE_NAME']
 
-        rospy.wait_for_service("misc_ctrl_srv", timeout=1)
-        self.misc_ctrl = rospy.ServiceProxy("misc_ctrl_srv", MiscCtrlCMD)
-        self.misc_ctrl("set_fr", 3)
-
         # define other variables as needed
         
         # Camera calibration parameters extracted from the file manager on the dashboard
         # Hard coding is a bad practice; We will have to hard code these parameters again if we switch to another Duckiebot
         # We found a ROS topic that gives us the intrinsic parameters, but not the extrinsict parameters (i.e. the homography matrix)
-        self.camera_matrix = np.array([[729.3017308196419, 0.0, 296.9297699654982],
-                                       [0.0, 714.8576567892494, 194.88265037301576],
-                                       [0.0, 0.0, 1.0]])
-        self.dist_coeffs = np.array(
-            [[-1.526832375685591], [2.217300696985744], [-0.00035517449407590306], [-0.013740460640726298], [0.0]])
-
         self.homography = np.array([
             -4.3606292146280124e-05,
             0.0003805216196272236,
@@ -49,23 +39,12 @@ class CrossWalkNode(DTROS):
             0.010136558604291714,
             -1.0992556526691932,
         ]).reshape(3, 3)
-
-        # Precompute undistortion maps
-        h, w = 480, 640  # Adjust to your image size
-        self.new_camera_matrix, self.roi = cv2.getOptimalNewCameraMatrix(
-            self.camera_matrix, self.dist_coeffs, (w, h), 1, (w, h))
-        self.map1, self.map2 = cv2.initUndistortRectifyMap(
-            self.camera_matrix, self.dist_coeffs, None, self.new_camera_matrix, (w, h), cv2.CV_16SC2)
     
         # Color detection parameters in HSV format
         self.lower_blue = np.array([100, 150, 50])
         self.upper_blue = np.array([140, 255, 255])
         self.lower_orange = np.array([15, 100, 100])
         self.upper_orange = np.array([20, 255, 255])
-
-        # Remember the last detected color. We only have to execute a different navigation control when there is a color
-        # change
-        self.last_color = None
 
         # Set a distance threshhold for detecting lines so we don't detect lines that are too far away
         self.dist_thresh = 5
@@ -77,14 +56,6 @@ class CrossWalkNode(DTROS):
         self._bridge = CvBridge()
 
         self.prev_state = None
-
-    def undistort_image(self, image):
-        return cv2.remap(image, self.map1, self.map2, cv2.INTER_LINEAR)
-    
-    def preprocess_image(self, image):
-        # Downscale the image
-        image = cv2.resize(image, (320, 240))  # Adjust resolution as needed
-        return cv2.GaussianBlur(image, (5, 5), 0)
     
     def detect_lane_color(self, image):
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -160,11 +131,11 @@ class CrossWalkNode(DTROS):
             return ImageDetectResponse(255)
 
         # Convert compressed image to CV2
-        preprocessed_image = self._bridge.compressed_imgmsg_to_cv2(msg.image)
-    
+        preprocessed_image = self._bridge.imgmsg_to_cv2(msg.image, desired_encoding="bgr8")
+
         # Crop the bottom of the image before detecting crosswalks because the bottom of the image is warped even after
         # undistortion. Another way to achieve the same purpose is to apply a minimum distance threshold, i.e. the blue
-        # lines have to be at least x units away. 
+        # lines have to be at least x units away.
         height, _ = preprocessed_image.shape[:2]
         cropped_image = preprocessed_image[:math.ceil(height * 0.7), :]
 
