@@ -125,13 +125,14 @@ class CrossWalkNode(DTROS):
         return image, 0
 
     def image_callback(self, msg):
-        if msg.shutdown:
+        shutdown, image = msg.shutdown, msg.image
+        if shutdown:
             s.shutdown("Shutting down crosswalk detection service.")
             rospy.signal_shutdown('Shutting down crosswalk detection node.')
             return ImageDetectResponse(255)
 
         # Convert compressed image to CV2
-        preprocessed_image = self._bridge.imgmsg_to_cv2(msg.image, desired_encoding="bgr8")
+        preprocessed_image = self._bridge.imgmsg_to_cv2(image, desired_encoding="bgr8")
 
         # Crop the bottom of the image before detecting crosswalks because the bottom of the image is warped even after
         # undistortion. Another way to achieve the same purpose is to apply a minimum distance threshold, i.e. the blue
