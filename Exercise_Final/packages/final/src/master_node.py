@@ -10,6 +10,7 @@ import numpy as np
 from duckietown.dtros import DTROS, NodeType
 from sensor_msgs.msg import CompressedImage
 from cv_bridge import CvBridge
+from final.msg import LaneFollowCMD
 from final.srv import MiscCtrlCMD, NavigateCMD, ImageDetect
 
 class MasterNode(DTROS):
@@ -25,6 +26,8 @@ class MasterNode(DTROS):
         self.misc_ctrl("set_fr", 3)
 
         # define other variables as needed
+        self.lane_follow_pub = None
+        self.apriltag_srv = None
         self.crosswalk_srv = None
         self.nav_srv = None
         self.bot_detect_srv = None
@@ -57,19 +60,23 @@ class MasterNode(DTROS):
         self.map1, self.map2 = cv2.initUndistortRectifyMap(
             self.camera_matrix, self.dist_coeffs, None, self.new_camera_matrix, (w, h), cv2.CV_16SC2)
 
-        # self.lane_follow_pub = rospy.Publisher(f"/{self._vehicle_name}/lane_follow_input", LaneFollowCMD, queue_size=1)
+        self.lower_red = np.array([0, 150, 50])
+        self.upper_red = np.array([10, 255, 255])
 
         # Initialize bridge and subscribe to camera feed
         self._camera_topic = f"/{self._vehicle_name}/camera_node/image/compressed"
         self._bridge = CvBridge()
         self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
 
-        self.prev_state = None
+        self.apriltag_id = None
 
         # Used to wait for camera initialization
         self.start_time = rospy.get_time()
 
         self.stage = 0
+
+        self.stage2_left = False
+        self.stage2_right = False
 
         self.num_crosswalks = 0
         self.broken_bot = 0
@@ -81,6 +88,13 @@ class MasterNode(DTROS):
         # Downscale the image
         image = cv2.resize(image, (320, 240))  # Adjust resolution as needed
         return cv2.GaussianBlur(image, (5, 5), 0)
+
+    def detect_red_line(self, image):
+        """Detects red lines in the image."""
+        hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        red_mask = cv2.inRange(hsv_image, self.lower_red, self.upper_red)
+        red_pixels = cv2.countNonZero(red_mask)
+        return red_pixels > 100  # Threshold for red line detection
 
     def detect_lane_color(self, image):
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -108,34 +122,87 @@ class MasterNode(DTROS):
         if self.stage == 0:
             self.stage += 1
 
+            subprocess.Popen(['rosrun', 'final', 'navigation.py'])
+            rospy.wait_for_service("nav_srv", timeout=30)
+            self.nav_srv = rospy.ServiceProxy("nav_srv", NavigateCMD)
+
             subprocess.Popen(['rosrun', 'final', 'lane_follow.py'])
+            self.lane_follow_pub = rospy.Publisher(f"/{self._vehicle_name}/lane_follow_input", LaneFollowCMD, queue_size=1)
             time.sleep(5)
 
             rospy.loginfo("Entering stage 1.")
         elif self.stage == 1:
 
             self.stage += 1
-            rospy.loginfo("Entering stage 2.")
-        elif self.stage == 2:
-            self.stage += 1
 
             self.sub.unregister()
 
-            subprocess.Popen(['rosrun', 'final', 'navigation.py'])
-            rospy.wait_for_service("nav_srv", timeout=30)
-            self.nav_srv = rospy.ServiceProxy("nav_srv", NavigateCMD)
-
-            subprocess.Popen(['rosrun', 'final', 'bot-detect.py'])
-            rospy.wait_for_service("bot_detect_srv", timeout=30)
-            self.bot_detect_srv = rospy.ServiceProxy("bot_detect_srv", ImageDetect)
-
-            subprocess.Popen(['rosrun', 'final', 'crosswalk.py'])
-            rospy.wait_for_service("crosswalk_detect_srv", timeout=30)
-            self.crosswalk_srv = rospy.ServiceProxy("crosswalk_detect_srv", ImageDetect)
+            subprocess.Popen(['rosrun', 'final', 'apriltag_detection.py'])
+            rospy.wait_for_service('apriltag_detection_srv', timeout=30)
+            self.apriltag_srv = rospy.ServiceProxy('apriltag_detection_srv', ImageDetect)
 
             self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
 
-            rospy.loginfo("Entering stage 3.")
+            rospy.loginfo("Entering stage 2.")
+        elif self.stage == 2:
+            imgmsg = self._bridge.cv2_to_imgmsg(undistorted_image.copy(), encoding="bgr8")
+            self.apriltag_id = self.apriltag_srv(False, imgmsg).res
+
+            detected_red = self.detect_red_line(image)
+
+            if detected_red:
+                if self.apriltag_id == 48:
+                    self.stage2_left = True
+
+                    self.sub.unregister()
+
+                    self.nav_srv(0, 0, 0, 2)
+                    self.nav_srv(1, 0.3, 0.28, 0.3)
+                    self.nav_srv(1, 0.3, 0.5, 0.4555)
+
+                    self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
+                elif self.apriltag_id == 50:
+                    self.stage2_right = True
+
+                    self.sub.unregister()
+
+                    self.nav_srv(0, 0, 0, 2)
+                    self.nav_srv(1, 0.3, 0.28, 0.3)
+                    self.nav_srv(1, 0.75, 0.3, 0.4555)
+
+                    self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
+                else:
+                    rospy.loginfo("No valid Apriltag detected.")
+
+            if self.stage2_left and self.stage2_right:
+                self.stage += 1
+
+                self.sub.unregister()
+
+                try:
+                    self.apriltag_srv(True, imgmsg)
+                except rospy.service.ServiceException:
+                    self.apriltag_srv = None
+
+                subprocess.Popen(['rosrun', 'final', 'bot-detect.py'])
+                rospy.wait_for_service("bot_detect_srv", timeout=30)
+                self.bot_detect_srv = rospy.ServiceProxy("bot_detect_srv", ImageDetect)
+
+                subprocess.Popen(['rosrun', 'final', 'crosswalk.py'])
+                rospy.wait_for_service("crosswalk_detect_srv", timeout=30)
+                self.crosswalk_srv = rospy.ServiceProxy("crosswalk_detect_srv", ImageDetect)
+
+                self.misc_ctrl("set_led", 3)
+
+                self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
+
+                rospy.loginfo("Entering stage 3.")
+                return
+
+            lane_follow_cmd = LaneFollowCMD()
+            lane_follow_cmd.image = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding="bgr8")
+            lane_follow_cmd.state = 0
+            self.lane_follow_pub.publish(lane_follow_cmd)
         elif self.stage == 3:
             assert self.nav_srv is not None, "Stage 3: Navigation service is not available."
             assert self.crosswalk_srv is not None, "Stage 3: Crosswalk detection service is not available."
@@ -145,7 +212,6 @@ class MasterNode(DTROS):
             bot_res = self.bot_detect_srv(False, imgmsg)
 
             if bot_res.res == 1:
-                rospy.loginfo("Detected a broken bot")
                 self.broken_bot += 1
                 self.sub.unregister()
 
@@ -166,24 +232,18 @@ class MasterNode(DTROS):
             if self.broken_bot == 1 and self.num_crosswalks == 2:
                 self.stage += 1
 
-                shutdown_cmd = ImageDetect()
-                shutdown_cmd.shutdown = True
-
                 try:
-                    self.crosswalk_srv(shutdown_cmd)
+                    self.crosswalk_srv(True, imgmsg)
                 except rospy.service.ServiceException:
                     self.crosswalk_srv = None
 
                 try:
-                    self.bot_detect_srv(shutdown_cmd)
+                    self.bot_detect_srv(True, imgmsg)
                 except rospy.service.ServiceException:
                     self.bot_detect_srv = None
 
-                shutdown_cmd = NavigateCMD()
-                shutdown_cmd.cmd = 255
-
                 try:
-                    self.nav_srv(shutdown_cmd)
+                    self.nav_srv(255, 0, 0, 0)
                 except rospy.service.ServiceException:
                     self.nav_srv = None
 
