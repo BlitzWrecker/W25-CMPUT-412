@@ -35,9 +35,9 @@ class BotDetectNode(DTROS):
         ]).reshape(3, 3)
 
         # Color detection parameters in HSV format
-        self.lower_light_blue = np.array([95, 150, 50])
-        self.upper_light_blue = np.array([105, 255, 255])
-        self.lower_blue = np.array([105, 150, 50])
+        self.lower_light_blue = np.array([105, 150, 50])
+        self.upper_light_blue = np.array([108, 255, 255])
+        self.lower_blue = np.array([115, 150, 50])
         self.upper_blue = np.array([125, 255, 255])
 
         # Set a distance threshhold for detecting lines so we don't detect lines that are too far away
@@ -71,7 +71,7 @@ class BotDetectNode(DTROS):
 
     def detect_broken_bot(self, image, masks):
         colors = {"blue": (255, 0, 0), "light_blue": (135, 206, 235)}
-        detected = False
+        detected = {"blue": False, "light_blue": False}
 
         for color_name, mask in masks.items():
             masked_color = cv2.bitwise_and(image, image, mask=mask)
@@ -91,23 +91,25 @@ class BotDetectNode(DTROS):
                 dist = self.calculate_dist(box_rep, screen_bot)
 
                 if (color_name == 'blue' and area > 400 and aspect_ratio < 5 and dist <= self.dist_thresh) \
-                            or (color_name == 'light_blue' and area > 80 and dist <= self.dist_thresh):  # Filter small contours
-                    detected = True
+                            or (color_name == 'light_blue' and area > 50 and dist <= self.dist_thresh):  # Filter small contours
+                    detected[color_name] = True
                     cv2.rectangle(image, (x, y), (x + w, y + h), colors[color_name], 2)
                     cv2.putText(image, f"Dist: {dist * 30:.2f} cm", (x, y + h + 10), cv2.FONT_HERSHEY_PLAIN, 1,
                                 colors[color_name])
 
-        rospy.loginfo(f"Detected: {detected}")
-        return image, detected
+        detected_bot = detected["blue"] and detected['light_blue']
+        rospy.loginfo(f"Potentially broken bot: {detected_bot}")
+        return image, detected_bot
 
     def image_callback(self, msg):
-        if msg.shutdown:
+        shutdown, image = msg.shutdown, msg.image
+        if shutdown:
             s.shutdown("Shutting down crosswalk detection service.")
             rospy.signal_shutdown('Shutting down crosswalk detection node.')
             return ImageDetectResponse(255)
 
         # Convert compressed image to CV2
-        preprocessed_image = self._bridge.imgmsg_to_cv2(msg.image, desired_encoding="bgr8")
+        preprocessed_image = self._bridge.imgmsg_to_cv2(image, desired_encoding="bgr8")
 
         # Crop the bottom of the image before detecting crosswalks because the bottom of the image is warped even after
         # undistortion. Another way to achieve the same purpose is to apply a minimum distance threshold, i.e. the blue
