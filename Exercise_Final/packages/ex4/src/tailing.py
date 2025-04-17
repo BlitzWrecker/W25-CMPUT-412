@@ -18,8 +18,7 @@ from ex4.srv import MiscCtrlCMD
 WHEEL_RADIUS = 0.0318  # meters (Duckiebot wheel radius)
 WHEEL_BASE = 0.05  # meters (distance between left and right wheels)
 TICKS_PER_ROTATION = 135  # Encoder ticks per full wheel rotation
-TURN_SPEED = 0.35  # Adjust speed for accuracy
-SAFE_DISTANCE = 0.3  # meters (safe following distance)
+SAFE_DISTANCE = 0.35  # meters (safe following distance)
 FOLLOW_DISTANCE = 0.5  # meters (desired following distance)
 
 
@@ -61,7 +60,7 @@ class DuckiebotFollowerNode(DTROS):
 
        # Control parameters
        self.base_speed = 0.3
-       self.max_speed = 0.5
+       self.max_speed = 0.6
        self.min_speed = 0.1
        self.kp_distance = 0.5  # Proportional gain for distance control
       
@@ -220,9 +219,6 @@ class DuckiebotFollowerNode(DTROS):
                    else:
                        raise ValueError
 
-
-
-
                    cv2.rectangle(image, (x, y), (x + w, y + h), colors[color_name], 2)
 
 
@@ -304,73 +300,71 @@ class DuckiebotFollowerNode(DTROS):
 
 
    def image_callback(self, msg):
-       try:
-           # Convert compressed image to OpenCV format
-           image = self.bridge.compressed_imgmsg_to_cv2(msg, desired_encoding="bgr8")
-           image = cv2.resize(image, (640, 480))  # Work with full resolution for better detection
-          
-           # Always calculate lane error (we use it regardless of following mode)
-           lane_error = self.calculate_lane_error(image)
-          
-           # Detect vehicle
-           detected, distance = self.detect_vehicle(image)
-           current_time = rospy.get_time()
-          
-           if detected:
-               self.last_detection_time = current_time
-               self.current_distance = distance
-              
-               # Calculate distance error
-               distance_error = distance - self.target_distance
-              
-               # Calculate base speed based on distance
-               base_speed = self.calculate_base_speed(distance_error)
-              
-               # If we're too close, stop
-               if distance < SAFE_DISTANCE:
-                   base_speed = 0
-                   rospy.logwarn("Too close! Stopping.")
-              
-               # Calculate wheel speeds with lane following
-               left_speed, right_speed = self.calculate_wheel_speeds(base_speed, lane_error)
-              
-               cmd = WheelsCmdStamped()
-               cmd.vel_left = left_speed
-               cmd.vel_right = right_speed
-               self.pub_cmd.publish(cmd)
-              
-               # Draw detection info on image
-               cv2.putText(image, "MODE: FOLLOWING + LANE KEEPING", (10, 30),
-                          cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-               cv2.putText(image, f"Distance: {distance:.2f}m", (10, 60),
-                          cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-               cv2.putText(image, f"Speed: L={left_speed:.2f}, R={right_speed:.2f}", (10, 90),
-                          cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-           else:
-               # If no detection recently, switch to pure lane following
-               if current_time - self.last_detection_time > self.detection_timeout:
-                   # Use default base speed for lane following
-                   left_speed, right_speed = self.calculate_wheel_speeds(self.base_speed, lane_error)
-                  
-                   cmd = WheelsCmdStamped()
-                   cmd.vel_left = left_speed
-                   cmd.vel_right = right_speed
-                   self.pub_cmd.publish(cmd)
-                  
-                   cv2.putText(image, "MODE: LANE FOLLOWING", (10, 30),
-                              cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-                   cv2.putText(image, f"Speed: L={left_speed:.2f}, R={right_speed:.2f}", (10, 60),
-                              cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-               else:
-                   # If we just lost detection but within timeout, maintain last command
-                   cv2.putText(image, "MODE: SEARCHING", (10, 30),
-                              cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-          
-           # Publish processed image
-           self.image_pub.publish(self.bridge.cv2_to_imgmsg(image, encoding="bgr8"))
-          
-       except Exception as e:
-           rospy.logerr(f"Error in image processing: {str(e)}")
+        try:
+            # Convert compressed image to OpenCV format
+            image = self.bridge.compressed_imgmsg_to_cv2(msg, desired_encoding="bgr8")
+            image = cv2.resize(image, (640, 480))  # Work with full resolution for better detection
+            
+            # Always calculate lane error (we use it regardless of following mode)
+            lane_error = self.calculate_lane_error(image)
+            
+            # Detect vehicle
+            detected, distance = self.detect_vehicle(image)
+            current_time = rospy.get_time()
+            
+            if detected:
+                self.last_detection_time = current_time
+                self.current_distance = distance
+
+                # Calculate distance error
+                distance_error = distance - self.target_distance
+
+                # Calculate base speed based on distance
+                base_speed = self.calculate_base_speed(distance_error)
+
+                # If we're too close, stop
+                if distance < SAFE_DISTANCE:
+                    left_speed = 0
+                    right_speed = 0
+                    rospy.loginfo("Too close! Stopping.")
+                else:
+                    # Calculate wheel speeds with lane following
+                    left_speed, right_speed = self.calculate_wheel_speeds(base_speed, lane_error)
+
+                cmd = WheelsCmdStamped()
+                cmd.vel_left = left_speed
+                cmd.vel_right = right_speed
+                self.pub_cmd.publish(cmd)
+                self.misc_ctrl("set_led", 1)
+                
+                # Draw detection info on image
+                cv2.putText(image, "MODE: FOLLOWING + LANE KEEPING", (10, 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                cv2.putText(image, f"Distance: {distance:.2f}m", (10, 60),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                cv2.putText(image, f"Speed: L={left_speed:.2f}, R={right_speed:.2f}", (10, 90),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            else:
+                # If no detection recently, switch to pure lane following
+                if current_time - self.last_detection_time > self.detection_timeout:
+                    # Use default base speed for lane following
+                    left_speed, right_speed = self.calculate_wheel_speeds(self.base_speed, lane_error)
+                    
+                    cmd = WheelsCmdStamped()
+                    cmd.vel_left = left_speed
+                    cmd.vel_right = right_speed
+                    self.pub_cmd.publish(cmd)
+                    self.misc_ctrl("set_led", 0)
+                    
+                    cv2.putText(image, "MODE: LANE FOLLOWING", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                    cv2.putText(image, f"Speed: L={left_speed:.2f}, R={right_speed:.2f}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                else:
+                    # If we just lost detection but within timeout, maintain last command
+                    cv2.putText(image, "MODE: SEARCHING", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+        except Exception as e:
+            rospy.loginfo(e)
+        # Publish processed image
+        self.image_pub.publish(self.bridge.cv2_to_imgmsg(image, encoding="bgr8"))
 
 
    def on_shutdown(self):
