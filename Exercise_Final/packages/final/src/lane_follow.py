@@ -45,7 +45,7 @@ class LaneFollowingNode(DTROS):
 
         # Movement parameters
         self.base_speed = 0.3  # Base wheel speed
-        self.max_speed = 0.5 # Max wheel speed
+        self.max_speed = 0.6 # Max wheel speed
 
 
         # Initialize bridge and publishers/subscribers
