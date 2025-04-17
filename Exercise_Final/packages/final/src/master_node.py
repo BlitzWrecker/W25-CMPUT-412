@@ -22,7 +22,7 @@ class MasterNode(DTROS):
 
         rospy.wait_for_service("misc_ctrl_srv", timeout=1)
         self.misc_ctrl = rospy.ServiceProxy("misc_ctrl_srv", MiscCtrlCMD)
-        self.misc_ctrl("set_fr", 1)
+        self.misc_ctrl("set_fr", 3)
 
         # define other variables as needed
         self.crosswalk_srv = None
@@ -119,9 +119,7 @@ class MasterNode(DTROS):
         elif self.stage == 2:
             self.stage += 1
 
-            subprocess.Popen(['rosrun', 'final', 'crosswalk.py'])
-            rospy.wait_for_service("crosswalk_detect_srv", timeout=30)
-            self.crosswalk_srv = rospy.ServiceProxy("crosswalk_detect_srv", ImageDetect)
+            self.sub.unregister()
 
             subprocess.Popen(['rosrun', 'final', 'navigation.py'])
             rospy.wait_for_service("nav_srv", timeout=30)
@@ -130,6 +128,12 @@ class MasterNode(DTROS):
             subprocess.Popen(['rosrun', 'final', 'bot-detect.py'])
             rospy.wait_for_service("bot_detect_srv", timeout=30)
             self.bot_detect_srv = rospy.ServiceProxy("bot_detect_srv", ImageDetect)
+
+            subprocess.Popen(['rosrun', 'final', 'crosswalk.py'])
+            rospy.wait_for_service("crosswalk_detect_srv", timeout=30)
+            self.crosswalk_srv = rospy.ServiceProxy("crosswalk_detect_srv", ImageDetect)
+
+            self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
 
             rospy.loginfo("Entering stage 3.")
         elif self.stage == 3:
@@ -140,7 +144,7 @@ class MasterNode(DTROS):
             imgmsg = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding="bgr8")
             bot_res = self.bot_detect_srv(False, imgmsg)
 
-            if bot_res.res == 1 and self.broken_bot < 1:
+            if bot_res.res == 1:
                 rospy.loginfo("Detected a broken bot")
                 self.broken_bot += 1
                 self.sub.unregister()
@@ -148,7 +152,7 @@ class MasterNode(DTROS):
                 self.nav_srv(2, -1, 0, 0)
                 self.nav_srv(1, 0.5, 0.5, 0.15)
                 self.nav_srv(2, 1, 0, 0)
-                self.nav_srv(1, 0.5, 0.5, 0.45)
+                self.nav_srv(1, 0.5, 0.48, 0.45)
                 self.nav_srv(2, 1, 0, 0)
                 self.nav_srv(1, 0.5, 0.5, 0.15)
                 self.nav_srv(2, -1, 0, 0)
