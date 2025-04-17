@@ -35,11 +35,13 @@ class BotDetectNode(DTROS):
         ]).reshape(3, 3)
 
         # Color detection parameters in HSV format
-        self.lower_blue = np.array([115, 150, 50])
+        self.lower_light_blue = np.array([95, 150, 50])
+        self.upper_light_blue = np.array([105, 255, 255])
+        self.lower_blue = np.array([105, 150, 50])
         self.upper_blue = np.array([125, 255, 255])
 
         # Set a distance threshhold for detecting lines so we don't detect lines that are too far away
-        self.dist_thresh = 10
+        self.dist_thresh = 5
 
         # Initialize bridge
         self._bridge = CvBridge()
@@ -50,6 +52,7 @@ class BotDetectNode(DTROS):
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         masks = {
             "blue": cv2.inRange(hsv_image, self.lower_blue, self.upper_blue),
+            "light_blue": cv2.inRange(hsv_image, self.lower_light_blue, self.upper_light_blue),
         }
         return masks
 
@@ -67,7 +70,7 @@ class BotDetectNode(DTROS):
         return np.linalg.norm(l2 - l1)
 
     def detect_broken_bot(self, image, masks):
-        colors = {"blue": (255, 0, 0)}
+        colors = {"blue": (255, 0, 0), "light_blue": (135, 206, 235)}
         detected = False
 
         for color_name, mask in masks.items():
@@ -87,7 +90,8 @@ class BotDetectNode(DTROS):
                 # Estimate the distance of the line from the robot using the distance of the line from the bottom of the screen
                 dist = self.calculate_dist(box_rep, screen_bot)
 
-                if area > 300 and 1.5 < aspect_ratio < 3.5 and dist <= self.dist_thresh:  # Filter small contours
+                if (color_name == 'blue' and area > 400 and aspect_ratio < 5 and dist <= self.dist_thresh) \
+                            or (color_name == 'light_blue' and area > 80 and dist <= self.dist_thresh):  # Filter small contours
                     detected = True
                     cv2.rectangle(image, (x, y), (x + w, y + h), colors[color_name], 2)
                     cv2.putText(image, f"Dist: {dist * 30:.2f} cm", (x, y + h + 10), cv2.FONT_HERSHEY_PLAIN, 1,
