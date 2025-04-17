@@ -101,7 +101,7 @@ class CrossWalkNode(DTROS):
                     if (dist <= self.dist_thresh):
                         contour_dists[color_name].append((dist, x, y, w, h))
 
-            contour_dists[color_name] = sorted(contour_dists[color_name], key=lambda x: x[0])
+            contour_dists[color_name] = sorted(contour_dists[color_name], key=lambda elem: elem[0])
 
         if "blue" in contour_dists.keys():
             if "orange" in contour_dists.keys() and len(contour_dists["blue"]) >= 1 and len(contour_dists["orange"]) > 0:
@@ -110,7 +110,7 @@ class CrossWalkNode(DTROS):
                         cv2.rectangle(image, (x, y), (x + w, y + h), colors[i], 2)
                         cv2.putText(image, f"Dist: {dist*30:.2f} cm", (x, y + h + 10), cv2.FONT_HERSHEY_PLAIN, 1, colors[i])
  
-                rospy.loginfo("Deteced crosswalk with ducks.")
+                rospy.loginfo("Detected crosswalk with ducks.")
                 return image, 3
 
             if len(contour_dists["blue"]) >= 2:
