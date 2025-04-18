@@ -215,12 +215,13 @@ class MasterNode(DTROS):
                 self.broken_bot += 1
                 self.sub.unregister()
 
+                self.nav_srv(0, 0, 0, 2)
                 self.nav_srv(2, -1, 0, 0)
-                self.nav_srv(1, 0.5, 0.5, 0.15)
+                self.nav_srv(1, 0.5, 0.49, 0.15)
                 self.nav_srv(2, 1, 0, 0)
                 self.nav_srv(1, 0.5, 0.48, 0.45)
                 self.nav_srv(2, 1, 0, 0)
-                self.nav_srv(1, 0.5, 0.5, 0.15)
+                self.nav_srv(1, 0.5, 0.49, 0.15)
                 self.nav_srv(2, -1, 0, 0)
 
                 self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
