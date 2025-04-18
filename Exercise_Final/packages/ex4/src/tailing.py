@@ -18,7 +18,7 @@ from ex4.srv import MiscCtrlCMD
 WHEEL_RADIUS = 0.0318  # meters (Duckiebot wheel radius)
 WHEEL_BASE = 0.05  # meters (distance between left and right wheels)
 TICKS_PER_ROTATION = 135  # Encoder ticks per full wheel rotation
-SAFE_DISTANCE = 0.35  # meters (safe following distance)
+SAFE_DISTANCE = 0.4  # meters (safe following distance)
 FOLLOW_DISTANCE = 0.5  # meters (desired following distance)
 
 
@@ -66,7 +66,7 @@ class DuckiebotFollowerNode(DTROS):
       
        # Lane following parameters
        self.controller_type = 'PID'
-       self.kp = 1.0  # Proportional gain
+       self.kp = 1.75  # Proportional gain
        self.kd = 0.1  # Derivative gain
        self.ki = 0.01  # Integral gain
        self.prev_error = 0
