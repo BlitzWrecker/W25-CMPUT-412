@@ -113,11 +113,11 @@ class MasterNode(DTROS):
         self.nav_srv(1, 0.3, 0.5, 0.4555)
 
     def turn_right(self):
-        self.nav_srv(1, 0.3, 0.28, 0.3)
+        # self.nav_srv(1, 0.3, 0.28, 0.1)
         self.nav_srv(1, 0.75, 0.3, 0.4555)
 
     def drive_straight(self, speed, duration):
-        self.nav_srv(1, speed, speed - 0.02, duration)
+        self.nav_srv(1, speed, speed - 0.01, duration)
 
     def image_callback(self, msg):
         current_time = rospy.get_time()
@@ -135,6 +135,7 @@ class MasterNode(DTROS):
         preprocessed_image = self.preprocess_image(undistorted_image)
 
         if self.stage == 0:
+            self.sub.unregister()
             self.stage += 1
 
             subprocess.Popen(['rosrun', 'final', 'navigation.py'])
@@ -152,14 +153,15 @@ class MasterNode(DTROS):
             self.misc_ctrl("set_led", 3)
 
             rospy.loginfo("Entering stage 1.")
+            self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback)
         elif self.stage == 1:
             height = image.shape[0]
             cropped_image_redline = image[height * 2 // 3:, :]
             detected_red = self.detect_red_line(cropped_image_redline)
 
             if self.num_stage1_red_lines == 0:
-                imgmsg = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding="bgr8")
-                bot_pos = self.bot_detect_srv(False, imgmsg)
+                imgmsg = self._bridge.cv2_to_imgmsg(undistorted_image.copy(), encoding="bgr8")
+                bot_pos = self.bot_detect_srv(False, imgmsg).res
 
                 if bot_pos > 0:
                     rospy.loginfo(f"Detected bot on {'left' if bot_pos == 1 else 'right'}.")
@@ -184,22 +186,30 @@ class MasterNode(DTROS):
                             self.stage1_right = True
                             self.turn_right()
 
-                        self.sub = rospy.Subscriber(self._camera_name, CompressedImage, self.image_callback, queue_size=1)
+                        self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
 
                 elif self.num_stage1_red_lines == 1:
                     self.sub.unregister()
+                    self.num_stage1_red_lines += 1
                     self.stop(2)
-                    self.drive_straight(0.4, 0.6)
-                    self.sub = rospy.Subscriber(self._camera_name, CompressedImage, self.image_callback, queue_size=1)
+                    self.drive_straight(0.4, 0.8)
+                    self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
                 elif self.num_stage1_red_lines == 2:
                     self.sub.unregister()
+                    self.num_stage1_red_lines += 1
                     if self.stage1_left:
                         self.turn_right()
 
                     if self.stage1_right:
                         self.turn_left()
 
-                    self.sub = rospy.Subscriber(self._camera_name, CompressedImage, self.image_callback, queue_size=1)
+                    self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
+            else:
+                cmd = LaneFollowCMD()
+                cmd.shutdown = False
+                cmd.image = self._bridge.cv2_to_imgmsg(image.copy(), encoding="bgr8")
+                cmd.state = 0
+                self.lane_follow_pub.publish(cmd)
 
             self.redline_pub.publish(self._bridge.cv2_to_imgmsg(cropped_image_redline, encoding="bgr8"))
 
@@ -210,12 +220,12 @@ class MasterNode(DTROS):
 
                 shutdown_cmd = LaneFollowCMD()
                 shutdown_cmd.shutdown = True
-                shutdown_cmd.image = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding="bgr8")
+                shutdown_cmd.image = self._bridge.cv2_to_imgmsg(image.copy(), encoding="bgr8")
                 shutdown_cmd.state = 0
                 self.lane_follow_pub.publish(shutdown_cmd)
 
                 try:
-                    self.bot_detect_srv(True, self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding="bgr8"))
+                    self.bot_detect_srv(True, self._bridge.cv2_to_imgmsg(image.copy(), encoding="bgr8"))
                 except rospy.ServiceException:
                     self.bot_detect_srv = None
 
@@ -232,14 +242,12 @@ class MasterNode(DTROS):
 
                 rospy.loginfo("Entering stage 2.")
 
-            cmd = LaneFollowCMD()
-            cmd.shutdown = False
-            cmd.image = self._bridge.cv2_to_imgmsg(image.copy(), encoding="bgr8")
-            cmd.state = 0
-            self.lane_follow_pub.publish(cmd)
         elif self.stage == 2:
             imgmsg = self._bridge.cv2_to_imgmsg(undistorted_image.copy(), encoding="bgr8")
-            self.apriltag_id = self.apriltag_srv(False, imgmsg).res
+            apriltag_id = self.apriltag_srv(False, imgmsg).res
+
+            if apriltag_id != 255:
+                self.apriltag_id = apriltag_id
 
             height = image.shape[0]
             cropped_image_redline = image[height * 2 // 3:, :]
@@ -253,13 +261,13 @@ class MasterNode(DTROS):
                 if self.apriltag_id == 48:
                     self.stage2_left = True
 
-                    self.nav_srv(1, 0.3, 0.28, 0.3)
+                    self.nav_srv(1, 0.3, 0.28, 0.2)
                     self.nav_srv(1, 0.3, 0.5, 0.4555)
 
                 elif self.apriltag_id == 50:
                     self.stage2_right = True
 
-                    self.nav_srv(1, 0.3, 0.28, 0.3)
+                    self.nav_srv(1, 0.3, 0.28, 0.1)
                     self.nav_srv(1, 0.75, 0.3, 0.4555)
 
                 else:
