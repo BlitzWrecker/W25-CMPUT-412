@@ -72,6 +72,7 @@ class BotDetectNode(DTROS):
     def detect_broken_bot(self, image, masks):
         colors = {"blue": (255, 0, 0), "light_blue": (135, 206, 235)}
         detected = {"blue": False, "light_blue": False}
+        x_coords = []
 
         for color_name, mask in masks.items():
             masked_color = cv2.bitwise_and(image, image, mask=mask)
@@ -93,13 +94,17 @@ class BotDetectNode(DTROS):
                 if (color_name == 'blue' and area > 400 and aspect_ratio < 5 and dist <= self.dist_thresh) \
                             or (color_name == 'light_blue' and area > 50 and dist <= self.dist_thresh):  # Filter small contours
                     detected[color_name] = True
+                    x_coords.append(x + w // 2)
                     cv2.rectangle(image, (x, y), (x + w, y + h), colors[color_name], 2)
                     cv2.putText(image, f"Dist: {dist * 30:.2f} cm", (x, y + h + 10), cv2.FONT_HERSHEY_PLAIN, 1,
                                 colors[color_name])
 
+        bot_rep = np.mean(x_coords)
+        width = image.shape[1]
+        bot_position = 1 if bot_rep < width // 2 else 2
         detected_bot = detected["blue"] and detected['light_blue']
         rospy.loginfo(f"Potentially broken bot: {detected_bot}")
-        return image, detected_bot
+        return image, bot_position if detected_bot else 0
 
     def image_callback(self, msg):
         shutdown, image = msg.shutdown, msg.image
@@ -122,7 +127,7 @@ class BotDetectNode(DTROS):
 
         self.img_pub.publish(self._bridge.cv2_to_imgmsg(processed_image, "bgr8"))
 
-        return ImageDetectResponse(1 if is_detected else 0)
+        return ImageDetectResponse(is_detected)
 
 
 if __name__ == '__main__':
