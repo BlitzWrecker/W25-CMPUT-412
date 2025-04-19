@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from time import sleep
 
 # import required libraries
 import rospy
@@ -8,7 +9,7 @@ import subprocess
 import time
 import numpy as np
 from duckietown.dtros import DTROS, NodeType
-from sensor_msgs.msg import CompressedImage
+from sensor_msgs.msg import CompressedImage, Image
 from cv_bridge import CvBridge
 from final.msg import LaneFollowCMD
 from final.srv import MiscCtrlCMD, NavigateCMD, ImageDetect
@@ -68,12 +69,20 @@ class MasterNode(DTROS):
         self._bridge = CvBridge()
         self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
 
+        self.redline_pub = rospy.Publisher(f"/{self._vehicle_name}/redline_image", Image, queue_size=1)
+
         self.apriltag_id = None
 
         # Used to wait for camera initialization
         self.start_time = rospy.get_time()
 
         self.stage = 0
+        self.num_stage1_red_lines = 0
+        self.s1p0_stop_frames = 0
+        self.last_bot_pos = 0
+
+        self.stage1_left = False
+        self.stage1_right = False
 
         self.stage2_left = False
         self.stage2_right = False
@@ -96,13 +105,19 @@ class MasterNode(DTROS):
         red_pixels = cv2.countNonZero(red_mask)
         return red_pixels > 100  # Threshold for red line detection
 
-    def detect_lane_color(self, image):
-        hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-        masks = {
-            "blue": cv2.inRange(hsv_image, self.lower_blue, self.upper_blue),
-            "orange": cv2.inRange(hsv_image, self.lower_orange, self.upper_orange)
-        }
-        return masks
+    def stop(self, duration):
+        self.nav_srv(0, 0, 0, duration)
+
+    def turn_left(self):
+        self.nav_srv(1, 0.3, 0.28, 0.3)
+        self.nav_srv(1, 0.3, 0.5, 0.4555)
+
+    def turn_right(self):
+        self.nav_srv(1, 0.3, 0.28, 0.3)
+        self.nav_srv(1, 0.75, 0.3, 0.4555)
+
+    def drive_straight(self, speed, duration):
+        self.nav_srv(1, speed, speed - 0.02, duration)
 
     def image_callback(self, msg):
         current_time = rospy.get_time()
@@ -126,53 +141,132 @@ class MasterNode(DTROS):
             rospy.wait_for_service("nav_srv", timeout=30)
             self.nav_srv = rospy.ServiceProxy("nav_srv", NavigateCMD)
 
-            subprocess.Popen(['rosrun', 'final', 'lane_follow.py'])
-            self.lane_follow_pub = rospy.Publisher(f"/{self._vehicle_name}/lane_follow_input", LaneFollowCMD, queue_size=1)
+            subprocess.Popen(['rosrun', 'final', 'soft_bot_detect.py'])
+            rospy.wait_for_service("bot_detect_srv", timeout=30)
+            self.bot_detect_srv = rospy.ServiceProxy("bot_detect_srv", ImageDetect)
+
+            subprocess.Popen(['rosrun', 'final', 'tail_detect.py'])
+            self.lane_follow_pub = rospy.Publisher(f"/{self._vehicle_name}/tailing_input", LaneFollowCMD, queue_size=1)
             time.sleep(5)
+
+            self.misc_ctrl("set_led", 3)
 
             rospy.loginfo("Entering stage 1.")
         elif self.stage == 1:
+            height = image.shape[0]
+            cropped_image_redline = image[height * 2 // 3:, :]
+            detected_red = self.detect_red_line(cropped_image_redline)
 
-            self.stage += 1
+            if self.num_stage1_red_lines == 0:
+                imgmsg = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding="bgr8")
+                bot_pos = self.bot_detect_srv(False, imgmsg)
 
-            self.sub.unregister()
+                if bot_pos > 0:
+                    rospy.loginfo(f"Detected bot on {'left' if bot_pos == 1 else 'right'}.")
+                    self.last_bot_pos = bot_pos
+                    self.s1p0_stop_frames = 0
+                else:
+                    self.s1p0_stop_frames += 1
 
-            subprocess.Popen(['rosrun', 'final', 'apriltag_detection.py'])
-            rospy.wait_for_service('apriltag_detection_srv', timeout=30)
-            self.apriltag_srv = rospy.ServiceProxy('apriltag_detection_srv', ImageDetect)
+            if detected_red:
+                rospy.loginfo("Detected red line.")
+                if self.num_stage1_red_lines == 0:
+                    self.nav_srv(0, 0, 0, 0)
 
-            self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
+                    if self.s1p0_stop_frames >= 4:
+                        self.sub.unregister()
 
-            rospy.loginfo("Entering stage 2.")
+                        self.num_stage1_red_lines += 1
+                        if self.last_bot_pos == 1:
+                            self.stage1_left = True
+                            self.turn_left()
+                        elif self.last_bot_pos == 2:
+                            self.stage1_right = True
+                            self.turn_right()
+
+                        self.sub = rospy.Subscriber(self._camera_name, CompressedImage, self.image_callback, queue_size=1)
+
+                elif self.num_stage1_red_lines == 1:
+                    self.sub.unregister()
+                    self.stop(2)
+                    self.drive_straight(0.4, 0.6)
+                    self.sub = rospy.Subscriber(self._camera_name, CompressedImage, self.image_callback, queue_size=1)
+                elif self.num_stage1_red_lines == 2:
+                    self.sub.unregister()
+                    if self.stage1_left:
+                        self.turn_right()
+
+                    if self.stage1_right:
+                        self.turn_left()
+
+                    self.sub = rospy.Subscriber(self._camera_name, CompressedImage, self.image_callback, queue_size=1)
+
+            self.redline_pub.publish(self._bridge.cv2_to_imgmsg(cropped_image_redline, encoding="bgr8"))
+
+            if self.num_stage1_red_lines == 3:
+                self.stage += 1
+
+                self.sub.unregister()
+
+                shutdown_cmd = LaneFollowCMD()
+                shutdown_cmd.shutdown = True
+                shutdown_cmd.image = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding="bgr8")
+                shutdown_cmd.state = 0
+                self.lane_follow_pub.publish(shutdown_cmd)
+
+                try:
+                    self.bot_detect_srv(True, self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding="bgr8"))
+                except rospy.ServiceException:
+                    self.bot_detect_srv = None
+
+                subprocess.Popen(['rosrun', 'final', 'apriltag_detection.py'])
+                rospy.wait_for_service('apriltag_detection_srv', timeout=30)
+                self.apriltag_srv = rospy.ServiceProxy('apriltag_detection_srv', ImageDetect)
+
+                subprocess.Popen(['rosrun', 'final', 'lane_follow.py'])
+                self.lane_follow_pub = rospy.Publisher(f"/{self._vehicle_name}/lane_follow_input", LaneFollowCMD,
+                                                       queue_size=1)
+                sleep(5)
+
+                self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
+
+                rospy.loginfo("Entering stage 2.")
+
+            cmd = LaneFollowCMD()
+            cmd.shutdown = False
+            cmd.image = self._bridge.cv2_to_imgmsg(image.copy(), encoding="bgr8")
+            cmd.state = 0
+            self.lane_follow_pub.publish(cmd)
         elif self.stage == 2:
             imgmsg = self._bridge.cv2_to_imgmsg(undistorted_image.copy(), encoding="bgr8")
             self.apriltag_id = self.apriltag_srv(False, imgmsg).res
 
-            detected_red = self.detect_red_line(image)
+            height = image.shape[0]
+            cropped_image_redline = image[height * 2 // 3:, :]
+            detected_red = self.detect_red_line(cropped_image_redline)
 
             if detected_red:
+                self.sub.unregister()
+
+                self.nav_srv(0, 0, 0, 2)
+
                 if self.apriltag_id == 48:
                     self.stage2_left = True
 
-                    self.sub.unregister()
-
-                    self.nav_srv(0, 0, 0, 2)
                     self.nav_srv(1, 0.3, 0.28, 0.3)
                     self.nav_srv(1, 0.3, 0.5, 0.4555)
 
-                    self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
                 elif self.apriltag_id == 50:
                     self.stage2_right = True
 
-                    self.sub.unregister()
-
-                    self.nav_srv(0, 0, 0, 2)
                     self.nav_srv(1, 0.3, 0.28, 0.3)
                     self.nav_srv(1, 0.75, 0.3, 0.4555)
 
-                    self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
                 else:
                     rospy.loginfo("No valid Apriltag detected.")
+
+                self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
+                return
 
             if self.stage2_left and self.stage2_right:
                 self.stage += 1
@@ -184,7 +278,7 @@ class MasterNode(DTROS):
                 except rospy.service.ServiceException:
                     self.apriltag_srv = None
 
-                subprocess.Popen(['rosrun', 'final', 'bot-detect.py'])
+                subprocess.Popen(['rosrun', 'final', 'bot_detect.py'])
                 rospy.wait_for_service("bot_detect_srv", timeout=30)
                 self.bot_detect_srv = rospy.ServiceProxy("bot_detect_srv", ImageDetect)
 
@@ -200,6 +294,7 @@ class MasterNode(DTROS):
                 return
 
             lane_follow_cmd = LaneFollowCMD()
+            lane_follow_cmd.shutdown= False
             lane_follow_cmd.image = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding="bgr8")
             lane_follow_cmd.state = 0
             self.lane_follow_pub.publish(lane_follow_cmd)
@@ -211,7 +306,7 @@ class MasterNode(DTROS):
             imgmsg = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding="bgr8")
             bot_res = self.bot_detect_srv(False, imgmsg)
 
-            if bot_res.res == 1:
+            if bot_res.res > 0:
                 self.broken_bot += 1
                 self.sub.unregister()
 
