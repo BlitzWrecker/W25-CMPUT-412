@@ -13,13 +13,19 @@ import math
 from final.msg import LaneFollowCMD
 from final.srv import MiscCtrlCMD
 
-SAFE_DISTANCE = 0.4  # meters (safe following distance)
-FOLLOW_DISTANCE = 0.5  # meters (desired following distance)
+SAFE_DISTANCE = 0.5  # meters (safe following distance)
+FOLLOW_DISTANCE = 0.6  # meters (desired following distance)
 
 
 class DuckiebotFollowerNode(DTROS):
     def __init__(self, node_name):
         super(DuckiebotFollowerNode, self).__init__(node_name=node_name, node_type=NodeType.CONTROL)
+
+        self.camera_matrix = np.array([[729.3017308196419, 0.0, 296.9297699654982],
+                                       [0.0, 714.8576567892494, 194.88265037301576],
+                                       [0.0, 0.0, 1.0]])
+        self.dist_coeffs = np.array(
+            [[-1.526832375685591], [2.217300696985744], [-0.00035517449407590306], [-0.013740460640726298], [0.0]])
 
         self.homography = np.array([
             -4.3606292146280124e-05,
@@ -33,18 +39,24 @@ class DuckiebotFollowerNode(DTROS):
             -1.0992556526691932,
         ]).reshape(3, 3)
 
+        h, w = 480, 640  # Adjust to your image size
+        self.new_camera_matrix, self.roi = cv2.getOptimalNewCameraMatrix(
+            self.camera_matrix, self.dist_coeffs, (w, h), 1, (w, h))
+        self.map1, self.map2 = cv2.initUndistortRectifyMap(
+            self.camera_matrix, self.dist_coeffs, None, self.new_camera_matrix, (w, h), cv2.CV_16SC2)
+
         rospy.wait_for_service("misc_ctrl_srv", timeout=1)
         self.misc_ctrl = rospy.ServiceProxy("misc_ctrl_srv", MiscCtrlCMD)
 
         # Control parameters
         self.base_speed = 0.3
-        self.max_speed = 0.6
+        self.max_speed = 0.5
         self.min_speed = 0.1
         self.kp_distance = 0.5  # Proportional gain for distance control
 
         # Lane following parameters
         self.controller_type = 'PID'
-        self.kp = 1.75  # Proportional gain
+        self.kp = 1.2  # Proportional gain
         self.kd = 0.1  # Derivative gain
         self.ki = 0.01  # Integral gain
         self.prev_error = 0
@@ -52,10 +64,10 @@ class DuckiebotFollowerNode(DTROS):
         self.last_time = time.time()
 
         # Lane detection thresholds
-        self.lower_yellow = np.array([20, 100, 100])
+        self.lower_yellow = np.array([20, 85, 100])
         self.upper_yellow = np.array([30, 255, 255])
         self.lower_white = np.array([0, 0, 150])
-        self.upper_white = np.array([180, 60, 255])
+        self.upper_white = np.array([180, 25, 255])
 
         # Vehicle tracking variables
         self.last_detection_time = 0
@@ -88,6 +100,14 @@ class DuckiebotFollowerNode(DTROS):
 
         rospy.on_shutdown(self.on_shutdown)
         rospy.loginfo("Duckiebot Follower Node Initialized")
+
+    def undistort_image(self, image):
+        return cv2.remap(image, self.map1, self.map2, cv2.INTER_LINEAR)
+
+    def preprocess_image(self, image):
+        # Downscale the image
+        image = cv2.resize(image, (320, 240))  # Adjust resolution as needed
+        return cv2.GaussianBlur(image, (5, 5), 0)
 
     def detect_vehicle(self, image):
         """Detects the rear pattern of another Duckiebot and returns distance"""
@@ -162,15 +182,11 @@ class DuckiebotFollowerNode(DTROS):
 
     def calculate_lane_error(self, image):
         """Detects lane and computes lateral offset from center."""
-        height, width = image.shape[:2]
-
-        cropped_image = image[math.ceil(height / 1.5):height, :]
-        preprocessed_image = cv2.resize(cropped_image, (320, 240))
-        masks = self.detect_lane_color(preprocessed_image)
-        lane_detected_image, yellow_x, white_x = self.detect_lane(preprocessed_image, masks)
+        masks = self.detect_lane_color(image)
+        lane_detected_image, yellow_x, white_x = self.detect_lane(image, masks)
         self.lane_following_image_pub.publish(self.bridge.cv2_to_imgmsg(lane_detected_image, encoding="bgr8"))
 
-        v_mid_line = self.extrinsic_transform(preprocessed_image.shape[1] // 2, 0)
+        v_mid_line = self.extrinsic_transform(image.shape[1] // 2, 0)
         yellow_line = self.extrinsic_transform(yellow_x, 0)
         white_line = self.extrinsic_transform(white_x, 0)
         yellow_line_displacement = max(float(self.calculate_distance(yellow_line, v_mid_line)), 0.0)
@@ -218,18 +234,23 @@ class DuckiebotFollowerNode(DTROS):
         return left_speed, right_speed
 
     def image_callback(self, msg):
-        shutdown, image = msg.shutdown, msg.image
+        shutdown, imgmsg = msg.shutdown, msg.image
 
         if shutdown:
             rospy.signal_shutdown('Shutting down Duckiebot tailing node.')
 
         try:
             # Convert compressed image to OpenCV format
-            image = self.bridge.compressed_imgmsg_to_cv2(image, desired_encoding="bgr8")
+            image = self.bridge.imgmsg_to_cv2(imgmsg, desired_encoding="bgr8")
             image = cv2.resize(image, (640, 480))  # Work with full resolution for better detection
 
+            undistorted_image = self.undistort_image(image)
+            preprocessed_image = self.preprocess_image(undistorted_image)
+            height = preprocessed_image.shape[0]
+            cropped_image = preprocessed_image[height//2:, :]
+
             # Always calculate lane error (we use it regardless of following mode)
-            lane_error = self.calculate_lane_error(image)
+            lane_error = self.calculate_lane_error(cropped_image)
 
             # Detect vehicle
             detected, distance = self.detect_vehicle(image)
@@ -286,10 +307,10 @@ class DuckiebotFollowerNode(DTROS):
                 else:
                     # If we just lost detection but within timeout, maintain last command
                     cv2.putText(image, "MODE: SEARCHING", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+            # Publish processed image
+            self.image_pub.publish(self.bridge.cv2_to_imgmsg(image, encoding="bgr8"))
         except Exception as e:
             rospy.loginfo(e)
-        # Publish processed image
-        self.image_pub.publish(self.bridge.cv2_to_imgmsg(image, encoding="bgr8"))
 
     def on_shutdown(self):
         cmd = WheelsCmdStamped()
