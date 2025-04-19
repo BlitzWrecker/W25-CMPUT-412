@@ -32,7 +32,7 @@ class LaneFollowingNode(DTROS):
         self.controller_type = 'PID'  # Change as needed ('P', 'PD', 'PID')
 
         # PID Gains
-        self.kp = 1.0  # Proportional gain
+        self.kp = 1.3  # Proportional gain
         self.kd = 0.1  # Derivative gain
         self.ki = 0.01  # Integral gain
 
@@ -55,10 +55,10 @@ class LaneFollowingNode(DTROS):
         self.image_sub = rospy.Subscriber(f"/{self._vehicle_name}/lane_follow_input", LaneFollowCMD, self.image_callback)
         self.image_pub = rospy.Publisher(f"/{self._vehicle_name}/lane_following_processed_image", Image, queue_size=10)
 
-        self.lower_yellow = np.array([20, 100, 100])
+        self.lower_yellow = np.array([20, 85, 100])
         self.upper_yellow = np.array([30, 255, 255])
         self.lower_white = np.array([0, 0, 150])
-        self.upper_white = np.array([180, 30, 255])
+        self.upper_white = np.array([180, 25, 255])
 
     def detect_lane_color(self, image):
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
