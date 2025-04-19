@@ -35,13 +35,13 @@ class BotDetectNode(DTROS):
         ]).reshape(3, 3)
 
         # Color detection parameters in HSV format
-        # self.lower_light_blue = np.array([105, 150, 50])
-        # self.upper_light_blue = np.array([108, 255, 255])
-        self.lower_blue = np.array([115, 150, 50])
+        # self.lower_light_blue = np.array([104, 150, 50])
+        # self.upper_light_blue = np.array([115, 255, 255])
+        self.lower_blue = np.array([104, 100, 50])
         self.upper_blue = np.array([125, 255, 255])
 
-        # Set a distance threshhold for detecting lines so we don't detect lines that are too far away
-        self.dist_thresh = 5
+        # Set a distance threshold for detecting lines so we don't detect lines that are too far away
+        self.dist_thresh = 2
 
         # Initialize bridge
         self._bridge = CvBridge()
@@ -72,11 +72,13 @@ class BotDetectNode(DTROS):
         colors = {"blue": (255, 0, 0)}
         detected = False
         x_coords = []
+        img_pub = None
 
         for color_name, mask in masks.items():
             masked_color = cv2.bitwise_and(image, image, mask=mask)
             gray = cv2.cvtColor(masked_color, cv2.COLOR_BGR2GRAY)
-            _, thresh = cv2.threshold(gray, 50, 255, cv2.THRESH_BINARY)
+            _, thresh = cv2.threshold(gray, 30, 255, cv2.THRESH_BINARY)
+            img_pub = thresh
             contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
             for contour in contours:
@@ -90,18 +92,18 @@ class BotDetectNode(DTROS):
                 # Estimate the distance of the line from the robot using the distance of the line from the bottom of the screen
                 dist = self.calculate_dist(box_rep, screen_bot)
 
-                if color_name == 'blue' and area > 50 and dist <= self.dist_thresh:
-                    detected[color_name] = True
+                if color_name == 'blue' and area > 300 and dist <= self.dist_thresh:
+                    detected = True
                     x_coords.append(x + w // 2)
-                    cv2.rectangle(image, (x, y), (x + w, y + h), colors[color_name], 2)
-                    cv2.putText(image, f"Dist: {dist * 30:.2f} cm", (x, y + h + 10), cv2.FONT_HERSHEY_PLAIN, 1,
+                    cv2.rectangle(img_pub, (x, y), (x + w, y + h), colors[color_name], 2)
+                    cv2.putText(img_pub, f"Dist: {dist * 30:.2f} cm", (x, y + h + 10), cv2.FONT_HERSHEY_PLAIN, 1,
                                 colors[color_name])
 
         bot_rep = np.mean(x_coords)
         width = image.shape[1]
         bot_position = 1 if bot_rep < width // 2 else 2
         rospy.loginfo(f"Potentially broken bot: {detected}")
-        return image, bot_position if detected else 0
+        return img_pub, bot_position if detected else 0
 
     def image_callback(self, msg):
         shutdown, image = msg.shutdown, msg.image
@@ -122,7 +124,7 @@ class BotDetectNode(DTROS):
         masks = self.detect_lane_color(cropped_image)
         processed_image, is_detected = self.detect_broken_bot(cropped_image.copy(), masks)
 
-        self.img_pub.publish(self._bridge.cv2_to_imgmsg(processed_image, "bgr8"))
+        self.img_pub.publish(self._bridge.cv2_to_imgmsg(processed_image, "mono8"))
 
         return ImageDetectResponse(is_detected)
 
