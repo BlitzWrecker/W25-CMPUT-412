@@ -151,6 +151,7 @@ class CrossWalkNode(DTROS):
 
         if self.prev_state == 1:
             if detected_crosswalk >= 2:
+                lane_follow_message.shutdown = False
                 lane_follow_message.image = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding='bgr8')
                 lane_follow_message.state = 1
                 self.res_pub.publish(lane_follow_message)
@@ -162,6 +163,7 @@ class CrossWalkNode(DTROS):
             # Case (2): we have to stop for one second before moving on
             if self.prev_state is None or (self.prev_state is not None and self.prev_state < 1):
                 # Signal the lane following node to stop the vehicle
+                lane_follow_message.shutdown = False
                 lane_follow_message.image = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding='bgr8')
                 lane_follow_message.state = detected_crosswalk
                 self.res_pub.publish(lane_follow_message)
@@ -173,6 +175,7 @@ class CrossWalkNode(DTROS):
             self.prev_state = 1
             return ImageDetectResponse(0)
 
+        lane_follow_message.shutdown = False
         lane_follow_message.image = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding='bgr8')
         lane_follow_message.state = detected_crosswalk
         self.res_pub.publish(lane_follow_message)
