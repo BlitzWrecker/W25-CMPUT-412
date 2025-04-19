@@ -77,7 +77,7 @@ class BotDetectNode(DTROS):
         for color_name, mask in masks.items():
             masked_color = cv2.bitwise_and(image, image, mask=mask)
             gray = cv2.cvtColor(masked_color, cv2.COLOR_BGR2GRAY)
-            _, thresh = cv2.threshold(gray, 50, 255, cv2.THRESH_BINARY)
+            _, thresh = cv2.threshold(gray, 30, 255, cv2.THRESH_BINARY)
             contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
             for contour in contours:
