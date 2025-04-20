@@ -111,6 +111,7 @@ class MasterNode(DTROS):
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         red_mask = cv2.inRange(hsv_image, self.lower_red, self.upper_red)
         red_pixels = cv2.countNonZero(red_mask)
+        self.redline_pub.publish(self._bridge.cv2_to_imgmsg(red_mask, encoding="mono8"))
         return red_pixels > 100  # Threshold for red line detection
 
     def stop(self, duration):
@@ -126,6 +127,13 @@ class MasterNode(DTROS):
 
     def drive_straight(self, speed, duration):
         self.nav_srv(1, speed, speed - 0.15, duration)
+
+    def lane_follow(self, image):
+        cmd = LaneFollowCMD()
+        cmd.shutdown = False
+        cmd.image = self._bridge.cv2_to_imgmsg(image.copy(), encoding="bgr8")
+        cmd.state = 0
+        self.lane_follow_pub.publish(cmd)
 
     def image_callback(self, msg):
         current_time = rospy.get_time()
@@ -175,11 +183,11 @@ class MasterNode(DTROS):
                     self.s1p0_stop_frames = 0
 
             current_time = rospy.get_time()
-            if detected_red and (current_time - self.last_red_line_time > self.red_line_cooldown):
+            if detected_red:
                 rospy.loginfo("Detected red line.")
+
                 if self.num_stage1_red_lines == 0:
                     self.stop(0)
-
                     if bot_pos > 0:
                         rospy.loginfo("Lead bot too close.")
                         self.s1p0_stop_frames = 0
@@ -197,35 +205,50 @@ class MasterNode(DTROS):
                             self.stage1_right = True
                             self.turn_right()
 
+                        self.last_red_line_time = current_time
+
                         self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
 
                 elif self.num_stage1_red_lines == 1:
-                    self.sub.unregister()
-                    self.num_stage1_red_lines += 1
-                    self.stop(2)
-                    self.drive_straight(0.3, 0.8)
-                    self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
+                    if current_time - self.last_red_line_time > self.red_line_cooldown:
+                        if bot_pos > 0:
+                            rospy.loginfo("Lead bot too close.")
+                            self.s1p1_stop_frames = 0
+                        else:
+                            self.s1p1_stop_frames += 1
+
+                        if self.s1p1_stop_frames >= 4:
+                            self.sub.unregister()
+                            self.num_stage1_red_lines += 1
+                            self.drive_straight(0.3, 0.8)
+                            self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
+
+                        self.last_red_line_time = current_time
+                    else:
+                        self.lane_follow(image)
                 elif self.num_stage1_red_lines == 2:
-                    self.sub.unregister()
-                    self.num_stage1_red_lines += 1
-                    self.stop(2)
-                    if self.stage1_left:
-                        self.turn_right()
+                    if current_time - self.last_red_line_time > self.red_line_cooldown:
+                        if bot_pos > 0:
+                            rospy.loginfo("Lead bot too close.")
+                            self.s1p2_stop_frames = 0
+                        else:
+                            self.s1p2_stop_frames += 1
 
-                    if self.stage1_right:
-                        self.turn_left()
+                        if self.s1p2_stop_frames >= 4:
+                            self.sub.unregister()
+                            self.num_stage1_red_lines += 1
+                            if self.stage1_left:
+                                self.turn_right()
 
-                    self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
-                self.last_red_line_time = current_time
+                            if self.stage1_right:
+                                self.turn_left()
+
+                            self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
+                    else:
+                        self.lane_follow(image)
 
             else:
-                cmd = LaneFollowCMD()
-                cmd.shutdown = False
-                cmd.image = self._bridge.cv2_to_imgmsg(image.copy(), encoding="bgr8")
-                cmd.state = 0
-                self.lane_follow_pub.publish(cmd)
-
-            self.redline_pub.publish(self._bridge.cv2_to_imgmsg(cropped_image_redline, encoding="bgr8"))
+                self.lane_follow(image)
 
             if self.num_stage1_red_lines == 3:
                 self.stage += 1
@@ -315,11 +338,7 @@ class MasterNode(DTROS):
                 rospy.loginfo("Entering stage 3.")
                 return
 
-            lane_follow_cmd = LaneFollowCMD()
-            lane_follow_cmd.shutdown= False
-            lane_follow_cmd.image = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding="bgr8")
-            lane_follow_cmd.state = 0
-            self.lane_follow_pub.publish(lane_follow_cmd)
+            self.lane_follow(preprocessed_image)
         elif self.stage == 3:
             assert self.nav_srv is not None, "Stage 3: Navigation service is not available."
             assert self.crosswalk_srv is not None, "Stage 3: Crosswalk detection service is not available."
