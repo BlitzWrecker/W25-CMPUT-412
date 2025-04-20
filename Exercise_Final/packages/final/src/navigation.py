@@ -60,8 +60,8 @@ class NavigationNode(DTROS):
                     self._publisher.publish(message)
                     break
 
-                rospy.loginfo(distance_traveled)
-                rospy.loginfo(self._ticks_left)
+                # rospy.loginfo(distance_traveled)
+                # rospy.loginfo(self._ticks_left)
 
                 self._publisher.publish(message)
                 rate.sleep()

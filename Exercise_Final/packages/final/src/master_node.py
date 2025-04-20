@@ -25,6 +25,8 @@ class MasterNode(DTROS):
         rospy.wait_for_service("misc_ctrl_srv", timeout=1)
         self.misc_ctrl = rospy.ServiceProxy("misc_ctrl_srv", MiscCtrlCMD)
         self.misc_ctrl("set_fr", 3)
+        self.misc_ctrl("set_led", 3)
+
 
         # define other variables as needed
         self.lane_follow_pub = None
@@ -79,6 +81,8 @@ class MasterNode(DTROS):
         self.stage = 0
         self.num_stage1_red_lines = 0
         self.s1p0_stop_frames = 0
+        self.s1p1_stop_frames = 0
+        self.s1p2_stop_frames = 0
         self.last_bot_pos = 0
 
         self.stage1_left = False
@@ -89,6 +93,10 @@ class MasterNode(DTROS):
 
         self.num_crosswalks = 0
         self.broken_bot = 0
+
+        # Red line detection cooldown
+        self.red_line_cooldown = 6.0  # Cooldown time in seconds (adjust as needed)
+        self.last_red_line_time = -7.0  # Timestamp of the last red line detection
 
     def undistort_image(self, image):
         return cv2.remap(image, self.map1, self.map2, cv2.INTER_LINEAR)
@@ -110,14 +118,14 @@ class MasterNode(DTROS):
 
     def turn_left(self):
         self.nav_srv(1, 0.3, 0.28, 0.1)
-        self.nav_srv(1, 0.3, 0.5, 0.55)
+        self.nav_srv(1, 0.3, 0.5, 0.60)
 
     def turn_right(self):
         # self.nav_srv(1, 0.3, 0.28, 0.1)
         self.nav_srv(1, 0.75, 0.3, 0.4555)
 
     def drive_straight(self, speed, duration):
-        self.nav_srv(1, speed, speed - 0.03, duration)
+        self.nav_srv(1, speed, speed - 0.15, duration)
 
     def image_callback(self, msg):
         current_time = rospy.get_time()
@@ -150,8 +158,6 @@ class MasterNode(DTROS):
             self.lane_follow_pub = rospy.Publisher(f"/{self._vehicle_name}/tailing_input", LaneFollowCMD, queue_size=1)
             time.sleep(5)
 
-            self.misc_ctrl("set_led", 3)
-
             rospy.loginfo("Entering stage 1.")
             self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback)
         elif self.stage == 1:
@@ -159,21 +165,26 @@ class MasterNode(DTROS):
             cropped_image_redline = image[height * 2 // 3:, :]
             detected_red = self.detect_red_line(cropped_image_redline)
 
-            if self.num_stage1_red_lines == 0:
-                imgmsg = self._bridge.cv2_to_imgmsg(undistorted_image.copy(), encoding="bgr8")
-                bot_pos = self.bot_detect_srv(False, imgmsg).res
+            imgmsg = self._bridge.cv2_to_imgmsg(undistorted_image.copy(), encoding="bgr8")
+            bot_pos = self.bot_detect_srv(False, imgmsg).res
 
+            if self.num_stage1_red_lines == 0:
                 if bot_pos > 0:
                     rospy.loginfo(f"Detected bot on {'left' if bot_pos == 1 else 'right'}.")
                     self.last_bot_pos = bot_pos
                     self.s1p0_stop_frames = 0
-                else:
-                    self.s1p0_stop_frames += 1
 
-            if detected_red:
+            current_time = rospy.get_time()
+            if detected_red and (current_time - self.last_red_line_time > self.red_line_cooldown):
                 rospy.loginfo("Detected red line.")
                 if self.num_stage1_red_lines == 0:
-                    self.nav_srv(0, 0, 0, 0)
+                    self.stop(0)
+
+                    if bot_pos > 0:
+                        rospy.loginfo("Lead bot too close.")
+                        self.s1p0_stop_frames = 0
+                    else:
+                        self.s1p0_stop_frames += 1
 
                     if self.s1p0_stop_frames >= 4:
                         self.sub.unregister()
@@ -205,6 +216,8 @@ class MasterNode(DTROS):
                         self.turn_left()
 
                     self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
+                self.last_red_line_time = current_time
+
             else:
                 cmd = LaneFollowCMD()
                 cmd.shutdown = False
@@ -331,7 +344,9 @@ class MasterNode(DTROS):
                 self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
                 return
 
+            self.sub.unregister()
             crosswalk_res = self.crosswalk_srv(False, imgmsg)
+            self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
             self.num_crosswalks += crosswalk_res.res
 
             if self.broken_bot == 1 and self.num_crosswalks == 2:

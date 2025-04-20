@@ -102,7 +102,7 @@ class BotDetectNode(DTROS):
         bot_rep = np.mean(x_coords)
         width = image.shape[1]
         bot_position = 1 if bot_rep < width // 2 else 2
-        rospy.loginfo(f"Potentially broken bot: {detected}")
+        # rospy.loginfo(f"Potentially broken bot: {detected}")
         return img_pub, bot_position if detected else 0
 
     def image_callback(self, msg):

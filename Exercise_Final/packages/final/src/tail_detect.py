@@ -13,8 +13,8 @@ import math
 from final.msg import LaneFollowCMD
 from final.srv import MiscCtrlCMD
 
-SAFE_DISTANCE = 0.5  # meters (safe following distance)
-FOLLOW_DISTANCE = 0.6  # meters (desired following distance)
+SAFE_DISTANCE = 0.6  # meters (safe following distance)
+FOLLOW_DISTANCE = 0.8  # meters (desired following distance)
 
 
 class DuckiebotFollowerNode(DTROS):
@@ -47,6 +47,7 @@ class DuckiebotFollowerNode(DTROS):
 
         rospy.wait_for_service("misc_ctrl_srv", timeout=1)
         self.misc_ctrl = rospy.ServiceProxy("misc_ctrl_srv", MiscCtrlCMD)
+        self.misc_ctrl("set_led", 3)
 
         # Control parameters
         self.base_speed = 0.3
@@ -259,6 +260,7 @@ class DuckiebotFollowerNode(DTROS):
             # Detect vehicle
             detected, distance = self.detect_vehicle(image)
             current_time = rospy.get_time()
+            rospy.loginfo(f"Tailing detetcion: {detected}")
 
             if detected:
                 self.last_detection_time = current_time
@@ -283,7 +285,7 @@ class DuckiebotFollowerNode(DTROS):
                 cmd.vel_left = left_speed
                 cmd.vel_right = right_speed
                 self.pub_cmd.publish(cmd)
-                self.misc_ctrl("set_led", 1)
+                self.misc_ctrl("set_led", 2)
 
                 # Draw detection info on image
                 cv2.putText(image, "MODE: FOLLOWING + LANE KEEPING", (10, 30),
@@ -302,7 +304,7 @@ class DuckiebotFollowerNode(DTROS):
                     cmd.vel_left = left_speed
                     cmd.vel_right = right_speed
                     self.pub_cmd.publish(cmd)
-                    self.misc_ctrl("set_led", 0)
+                    self.misc_ctrl("set_led", 3)
 
                     cv2.putText(image, "MODE: LANE FOLLOWING", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255),
                                 2)
