@@ -9,7 +9,7 @@ from sensor_msgs.msg import Image
 from duckietown_msgs.msg import WheelsCmdStamped, WheelEncoderStamped
 from cv_bridge import CvBridge
 import os
-import math
+from duckietown_msgs.msg import LEDPattern, ColorRGBA
 from final.msg import LaneFollowCMD
 from final.srv import MiscCtrlCMD
 
@@ -44,10 +44,6 @@ class DuckiebotFollowerNode(DTROS):
             self.camera_matrix, self.dist_coeffs, (w, h), 1, (w, h))
         self.map1, self.map2 = cv2.initUndistortRectifyMap(
             self.camera_matrix, self.dist_coeffs, None, self.new_camera_matrix, (w, h), cv2.CV_16SC2)
-
-        rospy.wait_for_service("misc_ctrl_srv", timeout=1)
-        self.misc_ctrl = rospy.ServiceProxy("misc_ctrl_srv", MiscCtrlCMD)
-        self.misc_ctrl("set_led", 3)
 
         # Control parameters
         self.base_speed = 0.3
@@ -99,8 +95,23 @@ class DuckiebotFollowerNode(DTROS):
         self.lane_following_image_pub = rospy.Publisher(f"/{self._vehicle_name}/lane_following_proccessed_image",
                                                         Image, queue_size=1)
 
+        self.led_off = ColorRGBA(r=0.0, g=0.0, b=0.0, a=1.0)
+        self.led_white = ColorRGBA(r=1, g=1, b=1, a=0.5)  # white
+        self.led_green = ColorRGBA(r=0, g=1, b=0, a=0.5)  # green
+        self.led_color = {'white': self.led_white, 'green': self.led_green}
+
+        # LED publisher
+        self.led_pub = rospy.Publisher(f"/{self._vehicle_name}/led_emitter_node/led_pattern", LEDPattern, queue_size=10)
+
+        self.set_led("white")
+
         rospy.on_shutdown(self.on_shutdown)
         rospy.loginfo("Duckiebot Follower Node Initialized")
+
+    def set_led(self, color):
+        pattern = LEDPattern()
+        pattern.rgb_vals = [self.led_color[color], self.led_color[color], self.led_color[color], self.led_off, self.led_off]
+        self.led_pub.publish(pattern)
 
     def undistort_image(self, image):
         return cv2.remap(image, self.map1, self.map2, cv2.INTER_LINEAR)
@@ -285,7 +296,7 @@ class DuckiebotFollowerNode(DTROS):
                 cmd.vel_left = left_speed
                 cmd.vel_right = right_speed
                 self.pub_cmd.publish(cmd)
-                self.misc_ctrl("set_led", 2)
+                self.set_led("green")
 
                 # Draw detection info on image
                 cv2.putText(image, "MODE: FOLLOWING + LANE KEEPING", (10, 30),
@@ -304,7 +315,7 @@ class DuckiebotFollowerNode(DTROS):
                     cmd.vel_left = left_speed
                     cmd.vel_right = right_speed
                     self.pub_cmd.publish(cmd)
-                    self.misc_ctrl("set_led", 3)
+                    self.set_led("white")
 
                     cv2.putText(image, "MODE: LANE FOLLOWING", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255),
                                 2)
