@@ -126,7 +126,7 @@ class MasterNode(DTROS):
         self.nav_srv(1, 0.75, 0.3, 0.4555)
 
     def drive_straight(self, speed, duration):
-        self.nav_srv(1, speed, speed - 0.15, duration)
+        self.nav_srv(1, speed, speed - 0.1, duration)
 
     def lane_follow(self, image):
         cmd = LaneFollowCMD()
@@ -210,9 +210,9 @@ class MasterNode(DTROS):
                         self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
 
                 elif self.num_stage1_red_lines == 1:
-                    if current_time - self.last_red_line_time > self.red_line_cooldown:
-                        self.stop(0)
+                    self.stop(0)
 
+                    if current_time - self.last_red_line_time > self.red_line_cooldown:
                         if bot_pos > 0:
                             rospy.loginfo("Lead bot too close.")
                             self.s1p1_stop_frames = 0
@@ -308,7 +308,8 @@ class MasterNode(DTROS):
                 elif self.apriltag_id == 50:
                     self.stage2_right = True
 
-                    self.turn_right()
+                    self.nav_srv(1, 0.3, 0.28, 0.1)
+                    self.nav_srv(1, 0.75, 0.3, 0.4555)
 
                 else:
                     rospy.loginfo("No valid Apriltag detected.")
