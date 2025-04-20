@@ -4,6 +4,7 @@ from time import sleep
 # import required libraries
 import rospy
 import os
+import sys
 import cv2
 import subprocess
 import time
@@ -97,6 +98,8 @@ class MasterNode(DTROS):
         # Red line detection cooldown
         self.red_line_cooldown = 6.0  # Cooldown time in seconds (adjust as needed)
         self.last_red_line_time = -7.0  # Timestamp of the last red line detection
+
+        self.parking_stall = parking_stall
 
     def undistort_image(self, image):
         return cv2.remap(image, self.map1, self.map2, cv2.INTER_LINEAR)
@@ -388,6 +391,7 @@ class MasterNode(DTROS):
                 except rospy.service.ServiceException:
                     self.nav_srv = None
 
+                rospy.signal_shutdown("Reason")
                 rospy.loginfo("Entering stage 4.")
         elif self.stage == 4:
             pass
