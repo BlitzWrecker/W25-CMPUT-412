@@ -186,6 +186,10 @@ class DuckiebotFollowerNode(DTROS):
         lane_detected_image, yellow_x, white_x = self.detect_lane(image, masks)
         self.lane_following_image_pub.publish(self.bridge.cv2_to_imgmsg(lane_detected_image, encoding="bgr8"))
 
+        width = image.shape[1]
+        boost = min(50, width // 2 - yellow_x)
+        yellow_x = yellow_x + boost
+
         v_mid_line = self.extrinsic_transform(image.shape[1] // 2, 0)
         yellow_line = self.extrinsic_transform(yellow_x, 0)
         white_line = self.extrinsic_transform(white_x, 0)
