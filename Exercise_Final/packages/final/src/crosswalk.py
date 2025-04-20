@@ -12,7 +12,7 @@ import numpy as np
 from duckietown.dtros import DTROS, NodeType
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
-from final.srv import MiscCtrlCMD, ImageDetect, ImageDetectResponse
+from final.srv import MiscCtrlCMD, ImageDetect, ImageDetectResponse, NavigateCMD
 from final.msg import LaneFollowCMD
 
 class CrossWalkNode(DTROS):
@@ -51,6 +51,9 @@ class CrossWalkNode(DTROS):
         
         self.img_pub = rospy.Publisher(f"/{self._vehicle_name}/crosswalk_processed_image", Image, queue_size=10)
         self.res_pub = rospy.Publisher(f"/{self._vehicle_name}/lane_follow_input", LaneFollowCMD,queue_size=1)
+
+        rospy.wait_for_service("nav_srv", timeout=5)
+        self.nav_srv = rospy.ServiceProxy("nav_srv", NavigateCMD)
 
         # Initialize bridge
         self._bridge = CvBridge()
@@ -151,10 +154,7 @@ class CrossWalkNode(DTROS):
 
         if self.prev_state == 1:
             if detected_crosswalk >= 2:
-                lane_follow_message.shutdown = False
-                lane_follow_message.image = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding='bgr8')
-                lane_follow_message.state = 1
-                self.res_pub.publish(lane_follow_message)
+                self.nav_srv(1, 0.3, 0.29, 0.2)
                 return ImageDetectResponse(0)
 
         # We have come across an empty crosswalk. Either (1) there were ducks on this crosswalk before, but now they
