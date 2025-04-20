@@ -6,12 +6,11 @@ import numpy as np
 import time
 from duckietown.dtros import DTROS, NodeType
 from sensor_msgs.msg import Image
-from duckietown_msgs.msg import WheelsCmdStamped, WheelEncoderStamped
+from duckietown_msgs.msg import LEDPattern, WheelsCmdStamped, WheelEncoderStamped
 from cv_bridge import CvBridge
 import os
-from duckietown_msgs.msg import LEDPattern, ColorRGBA
+from std_msgs.msg import ColorRGBA
 from final.msg import LaneFollowCMD
-from final.srv import MiscCtrlCMD
 
 SAFE_DISTANCE = 0.6  # meters (safe following distance)
 FOLLOW_DISTANCE = 0.8  # meters (desired following distance)
@@ -110,7 +109,7 @@ class DuckiebotFollowerNode(DTROS):
 
     def set_led(self, color):
         pattern = LEDPattern()
-        pattern.rgb_vals = [self.led_color[color], self.led_color[color], self.led_color[color], self.led_off, self.led_off]
+        pattern.rgb_vals = [self.led_off, self.led_color[color], self.led_off, self.led_color[color], self.led_off]
         self.led_pub.publish(pattern)
 
     def undistort_image(self, image):

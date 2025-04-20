@@ -211,6 +211,8 @@ class MasterNode(DTROS):
 
                 elif self.num_stage1_red_lines == 1:
                     if current_time - self.last_red_line_time > self.red_line_cooldown:
+                        self.stop(0)
+
                         if bot_pos > 0:
                             rospy.loginfo("Lead bot too close.")
                             self.s1p1_stop_frames = 0
@@ -223,10 +225,12 @@ class MasterNode(DTROS):
                             self.drive_straight(0.3, 0.8)
                             self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
 
-                        self.last_red_line_time = current_time
+                            self.last_red_line_time = current_time
                     else:
                         self.lane_follow(image)
                 elif self.num_stage1_red_lines == 2:
+                    self.stop(0)
+
                     if current_time - self.last_red_line_time > self.red_line_cooldown:
                         if bot_pos > 0:
                             rospy.loginfo("Lead bot too close.")
@@ -244,6 +248,7 @@ class MasterNode(DTROS):
                                 self.turn_left()
 
                             self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
+                            self.last_red_line_time = current_time
                     else:
                         self.lane_follow(image)
 
@@ -298,20 +303,17 @@ class MasterNode(DTROS):
                 if self.apriltag_id == 48:
                     self.stage2_left = True
 
-                    self.nav_srv(1, 0.3, 0.28, 0.2)
-                    self.nav_srv(1, 0.3, 0.5, 0.4555)
+                    self.turn_left()
 
                 elif self.apriltag_id == 50:
                     self.stage2_right = True
 
-                    self.nav_srv(1, 0.3, 0.28, 0.1)
-                    self.nav_srv(1, 0.75, 0.3, 0.4555)
+                    self.turn_right()
 
                 else:
                     rospy.loginfo("No valid Apriltag detected.")
 
                 self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
-                return
 
             if self.stage2_left and self.stage2_right:
                 self.stage += 1
