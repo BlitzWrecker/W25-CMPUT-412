@@ -67,7 +67,7 @@ class DuckiebotFollowerNode(DTROS):
         self.lower_yellow = np.array([20, 85, 100])
         self.upper_yellow = np.array([30, 255, 255])
         self.lower_white = np.array([0, 0, 150])
-        self.upper_white = np.array([180, 25, 255])
+        self.upper_white = np.array([180, 40, 255])
 
         # Vehicle tracking variables
         self.last_detection_time = 0
