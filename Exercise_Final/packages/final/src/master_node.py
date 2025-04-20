@@ -109,15 +109,15 @@ class MasterNode(DTROS):
         self.nav_srv(0, 0, 0, duration)
 
     def turn_left(self):
-        self.nav_srv(1, 0.3, 0.28, 0.3)
-        self.nav_srv(1, 0.3, 0.5, 0.4555)
+        self.nav_srv(1, 0.3, 0.28, 0.1)
+        self.nav_srv(1, 0.3, 0.5, 0.55)
 
     def turn_right(self):
         # self.nav_srv(1, 0.3, 0.28, 0.1)
         self.nav_srv(1, 0.75, 0.3, 0.4555)
 
     def drive_straight(self, speed, duration):
-        self.nav_srv(1, speed, speed - 0.01, duration)
+        self.nav_srv(1, speed, speed - 0.03, duration)
 
     def image_callback(self, msg):
         current_time = rospy.get_time()
@@ -192,11 +192,12 @@ class MasterNode(DTROS):
                     self.sub.unregister()
                     self.num_stage1_red_lines += 1
                     self.stop(2)
-                    self.drive_straight(0.4, 0.8)
+                    self.drive_straight(0.3, 0.8)
                     self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
                 elif self.num_stage1_red_lines == 2:
                     self.sub.unregister()
                     self.num_stage1_red_lines += 1
+                    self.stop(2)
                     if self.stage1_left:
                         self.turn_right()
 
@@ -229,14 +230,14 @@ class MasterNode(DTROS):
                 except rospy.ServiceException:
                     self.bot_detect_srv = None
 
-                subprocess.Popen(['rosrun', 'final', 'apriltag_detection.py'])
-                rospy.wait_for_service('apriltag_detection_srv', timeout=30)
-                self.apriltag_srv = rospy.ServiceProxy('apriltag_detection_srv', ImageDetect)
-
                 subprocess.Popen(['rosrun', 'final', 'lane_follow.py'])
                 self.lane_follow_pub = rospy.Publisher(f"/{self._vehicle_name}/lane_follow_input", LaneFollowCMD,
                                                        queue_size=1)
-                sleep(5)
+                time.sleep(5)
+
+                subprocess.Popen(['rosrun', 'final', 'apriltag_detection.py'])
+                rospy.wait_for_service('apriltag_detection_srv', timeout=30)
+                self.apriltag_srv = rospy.ServiceProxy('apriltag_detection_srv', ImageDetect)
 
                 self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
 
@@ -322,7 +323,7 @@ class MasterNode(DTROS):
                 self.nav_srv(2, -1, 0, 0)
                 self.nav_srv(1, 0.5, 0.49, 0.15)
                 self.nav_srv(2, 1, 0, 0)
-                self.nav_srv(1, 0.5, 0.48, 0.45)
+                self.nav_srv(1, 0.5, 0.47, 0.45)
                 self.nav_srv(2, 1, 0, 0)
                 self.nav_srv(1, 0.5, 0.49, 0.15)
                 self.nav_srv(2, -1, 0, 0)
