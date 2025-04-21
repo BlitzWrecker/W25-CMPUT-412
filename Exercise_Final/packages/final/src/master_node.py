@@ -92,8 +92,7 @@ class MasterNode(DTROS):
         self.stage2_left = False
         self.stage2_right = False
 
-        self.num_crosswalks = 0
-        self.broken_bot = 0
+        self.stage3_event = 1
 
         # Red line detection cooldown
         self.red_line_cooldown = 10.0  # Cooldown time in seconds (adjust as needed)
@@ -127,7 +126,7 @@ class MasterNode(DTROS):
         self.nav_srv(1, 0.75, 0.3, 0.4555)
 
     def drive_straight(self, speed, duration):
-        self.nav_srv(1, speed, speed - 0.05, duration)
+        self.nav_srv(1, speed, speed - 0.04, duration)
 
     def lane_follow(self, image):
         cmd = LaneFollowCMD()
@@ -153,36 +152,36 @@ class MasterNode(DTROS):
 
         if self.stage == 0:
             self.sub.unregister()
-            # self.stage += 1
-            self.stage = 3
+            self.stage += 1
+            # self.stage = 3
 
             subprocess.Popen(['rosrun', 'final', 'navigation.py'])
             rospy.wait_for_service("nav_srv", timeout=30)
             self.nav_srv = rospy.ServiceProxy("nav_srv", NavigateCMD)
 
-            # subprocess.Popen(['rosrun', 'final', 'soft_bot_detect.py'])
-            # rospy.wait_for_service("bot_detect_srv", timeout=30)
-            # self.bot_detect_srv = rospy.ServiceProxy("bot_detect_srv", ImageDetect)
-
-            # subprocess.Popen(['rosrun', 'final', 'tail_detect.py'])
-            # self.lane_follow_pub = rospy.Publisher(f"/{self._vehicle_name}/tailing_input", LaneFollowCMD, queue_size=1)
-            # time.sleep(5)
-
-
-            subprocess.Popen(['rosrun', 'final', 'bot_detect.py'])
+            subprocess.Popen(['rosrun', 'final', 'soft_bot_detect.py'])
             rospy.wait_for_service("bot_detect_srv", timeout=30)
             self.bot_detect_srv = rospy.ServiceProxy("bot_detect_srv", ImageDetect)
 
-            subprocess.Popen(['rosrun', 'final', 'crosswalk.py'])
-            rospy.wait_for_service("crosswalk_detect_srv", timeout=30)
-            self.crosswalk_srv = rospy.ServiceProxy("crosswalk_detect_srv", ImageDetect)
-
-            self.misc_ctrl("set_led", 3)
-
-            subprocess.Popen(['rosrun', 'final', 'lane_follow.py'])
-            self.lane_follow_pub = rospy.Publisher(f"/{self._vehicle_name}/lane_follow_input", LaneFollowCMD,
-                                                    queue_size=1)
+            subprocess.Popen(['rosrun', 'final', 'tail_detect.py'])
+            self.lane_follow_pub = rospy.Publisher(f"/{self._vehicle_name}/tailing_input", LaneFollowCMD, queue_size=1)
             time.sleep(5)
+
+
+            # subprocess.Popen(['rosrun', 'final', 'bot_detect.py'])
+            # rospy.wait_for_service("bot_detect_srv", timeout=30)
+            # self.bot_detect_srv = rospy.ServiceProxy("bot_detect_srv", ImageDetect)
+
+            # subprocess.Popen(['rosrun', 'final', 'crosswalk.py'])
+            # rospy.wait_for_service("crosswalk_detect_srv", timeout=30)
+            # self.crosswalk_srv = rospy.ServiceProxy("crosswalk_detect_srv", ImageDetect)
+
+            # self.misc_ctrl("set_led", 3)
+
+            # subprocess.Popen(['rosrun', 'final', 'lane_follow.py'])
+            # self.lane_follow_pub = rospy.Publisher(f"/{self._vehicle_name}/lane_follow_input", LaneFollowCMD,
+            #                                         queue_size=1)
+            # time.sleep(5)
 
             rospy.loginfo("Entering stage 1.")
             self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback)
@@ -192,9 +191,9 @@ class MasterNode(DTROS):
             detected_red = self.detect_red_line(cropped_image_redline)
 
             imgmsg = self._bridge.cv2_to_imgmsg(undistorted_image.copy(), encoding="bgr8")
-            bot_pos = self.bot_detect_srv(False, imgmsg).res
 
             if self.num_stage1_red_lines == 0:
+                bot_pos = self.bot_detect_srv(False, imgmsg).res
                 if bot_pos > 0:
                     rospy.loginfo(f"Detected bot on {'left' if bot_pos == 1 else 'right'}.")
                     self.last_bot_pos = bot_pos
@@ -203,6 +202,7 @@ class MasterNode(DTROS):
             current_time = rospy.get_time()
             if detected_red:
                 rospy.loginfo("Detected red line.")
+                bot_pos = self.bot_detect_srv(False, imgmsg).res
 
                 if self.num_stage1_red_lines == 0:
                     self.stop(0)
@@ -228,9 +228,9 @@ class MasterNode(DTROS):
                         self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
 
                 elif self.num_stage1_red_lines == 1:
-                    if current_time - self.last_red_line_time > self.red_line_cooldown:
-                        self.stop(0)
+                    self.stop(0)
 
+                    if current_time - self.last_red_line_time > self.red_line_cooldown:
                         if bot_pos > 0:
                             rospy.loginfo("Lead bot too close.")
                             self.s1p1_stop_frames = 0
@@ -240,6 +240,7 @@ class MasterNode(DTROS):
                         if self.s1p1_stop_frames >= 4:
                             self.sub.unregister()
                             self.num_stage1_red_lines += 1
+                            rospy.loginfo("Driving straight at the intersection")
                             self.drive_straight(0.3, 0.8)
                             self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
 
@@ -365,35 +366,39 @@ class MasterNode(DTROS):
             assert self.bot_detect_srv is not None, "Stage 3: Bot detection service is not available."
 
             imgmsg = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding="bgr8")
-            bot_res = self.bot_detect_srv(False, imgmsg)
 
-            if bot_res.res > 0:
-                self.broken_bot += 1
+            if self.stage3_event == 2:
+
+                bot_res = self.bot_detect_srv(False, imgmsg)
+
+                if bot_res.res > 0:
+                    self.stage3_event += 1
+                    self.sub.unregister()
+
+                    self.nav_srv(0, 0, 0, 2)
+                    self.nav_srv(2, -1, 0, 0)
+                    self.nav_srv(1, 0.5, 0.49, 0.15)
+                    self.nav_srv(2, 1, 0, 0)
+                    self.nav_srv(1, 0.5, 0.48, 0.45)
+                    self.nav_srv(2, 1, 0, 0)
+                    self.nav_srv(1, 0.5, 0.49, 0.15)
+                    self.nav_srv(2, -1, 0, 0)
+
+                    self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
+                else:
+                    self.lane_follow(preprocessed_image)
+            elif self.stage3_event == 1 or self.stage3_event == 3:
                 self.sub.unregister()
-
-                self.nav_srv(0, 0, 0, 2)
-                self.nav_srv(2, -1, 0, 0)
-                self.nav_srv(1, 0.5, 0.49, 0.15)
-                self.nav_srv(2, 1, 0, 0)
-                self.nav_srv(1, 0.5, 0.48, 0.45)
-                self.nav_srv(2, 1, 0, 0)
-                self.nav_srv(1, 0.5, 0.49, 0.15)
-                self.nav_srv(2, -1, 0, 0)
-
+                crosswalk_res = self.crosswalk_srv(False, imgmsg).res
                 self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
-                return
-
-            self.sub.unregister()
-            
-            crosswalk_res = self.crosswalk_srv(False, imgmsg)
-            self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
-            self.num_crosswalks += crosswalk_res.res
+                self.stage3_event += crosswalk_res
+                rospy.loginfo(f"{crosswalk_res}")
 
             height = image.shape[0]
             cropped_image_redline = image[height * 2 // 3:, :]
             detected_red = self.detect_red_line(cropped_image_redline)
 
-            if self.broken_bot >= 1 and self.num_crosswalks >= 2 and detected_red:
+            if detected_red and self.stage3_event > 1:
                 self.stage += 1
                 self.stop(0)
 

@@ -46,8 +46,8 @@ class DuckiebotFollowerNode(DTROS):
 
         # Control parameters
         self.base_speed = 0.3
-        self.max_speed = 0.5
-        self.min_speed = 0.1
+        self.max_speed = 0.6
+        self.min_speed = 0.15
         self.kp_distance = 0.5  # Proportional gain for distance control
 
         # Lane following parameters
@@ -195,7 +195,7 @@ class DuckiebotFollowerNode(DTROS):
         """Detects lane and computes lateral offset from center."""
         masks = self.detect_lane_color(image)
         lane_detected_image, yellow_x, white_x = self.detect_lane(image, masks)
-        # self.lane_following_image_pub.publish(self.bridge.cv2_to_imgmsg(lane_detected_image, encoding="bgr8"))
+        self.lane_following_image_pub.publish(self.bridge.cv2_to_imgmsg(lane_detected_image, encoding="bgr8"))
 
         width = image.shape[1]
         boost = min(50, width // 2 - yellow_x)

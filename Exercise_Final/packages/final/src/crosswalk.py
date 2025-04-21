@@ -42,7 +42,7 @@ class CrossWalkNode(DTROS):
     
         # Color detection parameters in HSV format
         self.lower_blue = np.array([100, 150, 50])
-        self.upper_blue = np.array([112, 255, 255])
+        self.upper_blue = np.array([140, 255, 255])
         self.lower_orange = np.array([15, 100, 100])
         self.upper_orange = np.array([20, 255, 255])
 
@@ -155,7 +155,7 @@ class CrossWalkNode(DTROS):
         if self.prev_state == 1:
             if detected_crosswalk >= 2:
                 self.nav_srv(1, 0.3, 0.29, 0.2)
-                return ImageDetectResponse(0)
+                return ImageDetectResponse(1)
 
         # We have come across an empty crosswalk. Either (1) there were ducks on this crosswalk before, but now they
         # have crossed, or (2) there were no ducks on this crosswalk when we first approached it.
@@ -179,14 +179,9 @@ class CrossWalkNode(DTROS):
         lane_follow_message.image = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding='bgr8')
         lane_follow_message.state = detected_crosswalk
         self.res_pub.publish(lane_follow_message)
-        detect_res = 0
-
-        if self.prev_state == 1 and detected_crosswalk == 0:
-            detect_res = 1
-
         self.prev_state = detected_crosswalk
 
-        return ImageDetectResponse(detect_res)
+        return ImageDetectResponse(0)
 
 
 if __name__ == '__main__':

@@ -99,9 +99,12 @@ class BotDetectNode(DTROS):
                     cv2.putText(img_pub, f"Dist: {dist * 30:.2f} cm", (x, y + h + 10), cv2.FONT_HERSHEY_PLAIN, 1,
                                 colors[color_name])
 
-        bot_rep = np.mean(x_coords)
-        width = image.shape[1]
-        bot_position = 1 if bot_rep < width // 2 else 2
+        if len(x_coords):
+            bot_rep = np.mean(x_coords)
+            width = image.shape[1]
+            bot_position = 1 if bot_rep < width // 2 else 2
+        else:
+            bot_position = 0
         return img_pub, bot_position if detected else 0
 
     def image_callback(self, msg):

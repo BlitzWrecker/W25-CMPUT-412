@@ -152,32 +152,32 @@ class ParkingNode(DTROS):
 
 
    def execute_parking_maneuver(self):
-       """Execute the parking maneuver based on the stall number"""
-      
-       rospy.loginfo(f"Starting parking in stall {self.parking_stall}")
-      
-       # Different turns based on parking stall
-       if self.parking_stall == 1:
-           self.move_wheels(0.5, 0.5, 1)  # Forward
-           self.turn_90_degrees(-1)  # Left turn
-           self.move_wheels(-0.5, -0.5, 1)  # Reverse
-       elif self.parking_stall == 2:
-           self.move_wheels(0.5, 0.5, 2)  # Forward
-           self.turn_90_degrees(-1)  # Left turn
-           self.move_wheels(-0.5, -0.5, 1)  # Reverse
-       elif self.parking_stall == 3:
-           self.move_wheels(0.5, 0.5, 1)  # Forward
-           self.turn_90_degrees(1)  # Right turn
-           self.move_wheels(-0.5, -0.5, 2.5)  # Reverse
-       elif self.parking_stall == 4:
-           self.move_wheels(0.5, 0.5, 2)  # Forward
-           self.turn_90_degrees(1)  # Right turn
-           self.move_wheels(-0.5, -0.5, 2.5)  # Reverse
-       else:
-           rospy.logerr(f"Invalid parking stall number: {self.parking_stall}")
-          
-       rospy.loginfo("Parking completed!")
-       rospy.signal_shutdown("Task completed")
+        """Execute the parking maneuver based on the stall number"""
+
+        rospy.loginfo(f"Starting parking in stall {self.parking_stall}")
+
+        # Different turns based on parking stall
+        if self.parking_stall == 1:
+            self.move_wheels(0.5, 0.5, 1)  # Forward
+            self.turn_90_degrees(-1)  # Left turn
+            self.move_wheels(-0.5, -0.5, 1)  # Reverse
+        elif self.parking_stall == 2:
+            self.move_wheels(0.5, 0.5, 2)  # Forward
+            self.turn_90_degrees(-1)  # Left turn
+            self.move_wheels(-0.5, -0.5, 1)  # Reverse
+        elif self.parking_stall == 3:
+            self.move_wheels(0.5, 0.5, 1)  # Forward
+            self.turn_90_degrees(1)  # Right turn
+            self.move_wheels(-0.5, -0.5, 2.5)  # Reverse
+        elif self.parking_stall == 4:
+            self.move_wheels(0.5, 0.5, 2)  # Forward
+            self.turn_90_degrees(1)  # Right turn
+            self.move_wheels(-0.5, -0.5, 2.5)  # Reverse
+        else:
+            rospy.logerr(f"Invalid parking stall number: {self.parking_stall}")
+            
+        rospy.loginfo("Parking completed!")
+        rospy.signal_shutdown("Task completed")
 
 
 if __name__ == '__main__':

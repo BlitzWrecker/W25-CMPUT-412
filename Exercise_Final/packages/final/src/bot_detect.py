@@ -37,8 +37,8 @@ class BotDetectNode(DTROS):
         # Color detection parameters in HSV format
         # self.lower_light_blue = np.array([105, 150, 50])
         # self.upper_light_blue = np.array([108, 255, 255])
-        self.lower_blue = np.array([113, 150, 50])
-        self.upper_blue = np.array([125, 255, 255])
+        self.lower_blue = np.array([100, 150, 50])
+        self.upper_blue = np.array([140, 255, 255])
 
         # Set a distance threshhold for detecting lines so we don't detect lines that are too far away
         self.dist_thresh = 5
