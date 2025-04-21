@@ -195,7 +195,7 @@ class DuckiebotFollowerNode(DTROS):
         """Detects lane and computes lateral offset from center."""
         masks = self.detect_lane_color(image)
         lane_detected_image, yellow_x, white_x = self.detect_lane(image, masks)
-        self.lane_following_image_pub.publish(self.bridge.cv2_to_imgmsg(lane_detected_image, encoding="bgr8"))
+        # self.lane_following_image_pub.publish(self.bridge.cv2_to_imgmsg(lane_detected_image, encoding="bgr8"))
 
         width = image.shape[1]
         boost = min(50, width // 2 - yellow_x)
@@ -298,12 +298,12 @@ class DuckiebotFollowerNode(DTROS):
                 self.set_led("green")
 
                 # Draw detection info on image
-                cv2.putText(image, "MODE: FOLLOWING + LANE KEEPING", (10, 30),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-                cv2.putText(image, f"Distance: {distance:.2f}m", (10, 60),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-                cv2.putText(image, f"Speed: L={left_speed:.2f}, R={right_speed:.2f}", (10, 90),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                # cv2.putText(image, "MODE: FOLLOWING + LANE KEEPING", (10, 30),
+                #             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                # cv2.putText(image, f"Distance: {distance:.2f}m", (10, 60),
+                #             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                # cv2.putText(image, f"Speed: L={left_speed:.2f}, R={right_speed:.2f}", (10, 90),
+                #             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
             else:
                 # If no detection recently, switch to pure lane following
                 if current_time - self.last_detection_time > self.detection_timeout:
@@ -316,15 +316,16 @@ class DuckiebotFollowerNode(DTROS):
                     self.pub_cmd.publish(cmd)
                     self.set_led("white")
 
-                    cv2.putText(image, "MODE: LANE FOLLOWING", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255),
-                                2)
-                    cv2.putText(image, f"Speed: L={left_speed:.2f}, R={right_speed:.2f}", (10, 60),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                #     cv2.putText(image, "MODE: LANE FOLLOWING", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255),
+                #                 2)
+                #     cv2.putText(image, f"Speed: L={left_speed:.2f}, R={right_speed:.2f}", (10, 60),
+                #                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
                 else:
                     # If we just lost detection but within timeout, maintain last command
-                    cv2.putText(image, "MODE: SEARCHING", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                    # cv2.putText(image, "MODE: SEARCHING", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                    pass
             # Publish processed image
-            self.image_pub.publish(self.bridge.cv2_to_imgmsg(image, encoding="bgr8"))
+            # self.image_pub.publish(self.bridge.cv2_to_imgmsg(image, encoding="bgr8"))
         except Exception as e:
             rospy.loginfo(e)
 

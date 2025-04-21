@@ -13,8 +13,8 @@ echo "Environment PARKING_STALL: ${PARKING_STALL}"
 echo "Command line args: $@"
 
 # launch subscriber
-rosrun final master_node.py
 rosrun final misc_control.py &
+rosrun final master_node.py
 rosrun final parking.py "$PARKING_STALL"
 
 # wait for app to end

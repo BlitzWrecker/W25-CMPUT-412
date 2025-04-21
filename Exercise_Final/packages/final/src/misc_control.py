@@ -35,7 +35,7 @@ class MiscellaneousControl(DTROS):
         self.color_str = ['red', 'blue', 'green', 'white']
 
         # Store the last set LED color
-        self.last_led_color = "white"
+        self.last_led_color = ""
 
         # Set shutdown callback to restore framerate to the original value
         rospy.on_shutdown(self.on_shutdown)

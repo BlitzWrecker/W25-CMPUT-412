@@ -35,9 +35,9 @@ class BotDetectNode(DTROS):
         ]).reshape(3, 3)
 
         # Color detection parameters in HSV format
-        self.lower_light_blue = np.array([105, 150, 50])
-        self.upper_light_blue = np.array([108, 255, 255])
-        self.lower_blue = np.array([115, 150, 50])
+        # self.lower_light_blue = np.array([105, 150, 50])
+        # self.upper_light_blue = np.array([108, 255, 255])
+        self.lower_blue = np.array([113, 150, 50])
         self.upper_blue = np.array([125, 255, 255])
 
         # Set a distance threshhold for detecting lines so we don't detect lines that are too far away
@@ -52,7 +52,7 @@ class BotDetectNode(DTROS):
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         masks = {
             "blue": cv2.inRange(hsv_image, self.lower_blue, self.upper_blue),
-            "light_blue": cv2.inRange(hsv_image, self.lower_light_blue, self.upper_light_blue),
+            # "light_blue": cv2.inRange(hsv_image, self.lower_light_blue, self.upper_light_blue),
         }
         return masks
 
@@ -71,7 +71,7 @@ class BotDetectNode(DTROS):
 
     def detect_broken_bot(self, image, masks):
         colors = {"blue": (255, 0, 0), "light_blue": (135, 206, 235)}
-        detected = {"blue": False, "light_blue": False}
+        detected = {"blue": False}  # , "light_blue": False}
         x_coords = []
 
         for color_name, mask in masks.items():
@@ -102,7 +102,7 @@ class BotDetectNode(DTROS):
         bot_rep = np.mean(x_coords)
         width = image.shape[1]
         bot_position = 1 if bot_rep < width // 2 else 2
-        detected_bot = detected["blue"] and detected['light_blue']
+        detected_bot = detected["blue"]  # and detected['light_blue']
         rospy.loginfo(f"Potentially broken bot: {detected_bot}")
         return image, bot_position if detected_bot else 0
 

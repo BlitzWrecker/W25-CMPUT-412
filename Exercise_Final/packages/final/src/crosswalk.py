@@ -42,7 +42,7 @@ class CrossWalkNode(DTROS):
     
         # Color detection parameters in HSV format
         self.lower_blue = np.array([100, 150, 50])
-        self.upper_blue = np.array([140, 255, 255])
+        self.upper_blue = np.array([112, 255, 255])
         self.lower_orange = np.array([15, 100, 100])
         self.upper_orange = np.array([20, 255, 255])
 
@@ -179,12 +179,14 @@ class CrossWalkNode(DTROS):
         lane_follow_message.image = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding='bgr8')
         lane_follow_message.state = detected_crosswalk
         self.res_pub.publish(lane_follow_message)
-        self.prev_state = detected_crosswalk
+        detect_res = 0
 
         if self.prev_state == 1 and detected_crosswalk == 0:
-            return ImageDetectResponse(1)
+            detect_res = 1
 
-        return ImageDetectResponse(0)
+        self.prev_state = detected_crosswalk
+
+        return ImageDetectResponse(detect_res)
 
 
 if __name__ == '__main__':

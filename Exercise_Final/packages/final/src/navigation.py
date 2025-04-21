@@ -96,7 +96,7 @@ class NavigationNode(DTROS):
         while not rospy.is_shutdown():
             if self._ticks_left is not None and self._ticks_right is not None:
                 avg_ticks = (abs(self._ticks_left) + abs(self._ticks_right)) / 2
-                rospy.loginfo(f"Current ticks: {avg_ticks}")
+                # rospy.loginfo(f"Current ticks: {avg_ticks}")
 
                 if avg_ticks >= ticks_needed:
                     rospy.loginfo("90-degree turn complete.")
