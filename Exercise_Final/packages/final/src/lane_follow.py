@@ -199,13 +199,15 @@ class LaneFollowingNode(DTROS):
 
     def image_callback(self, msg):
         """Processes camera image to detect lane and compute error."""
-        state = msg.state
+        shutdown, state, image = msg.shutdown, msg.state, msg.image
+
+        if shutdown:
+            rospy.signal_shutdown("Shutting down lane following node.")
 
         if state > 1:
             self.stop()
             return
 
-        image = msg.image
         image = self.bridge.imgmsg_to_cv2(image, desired_encoding="bgr8")
 
         # Crop the image to only include the lower half
