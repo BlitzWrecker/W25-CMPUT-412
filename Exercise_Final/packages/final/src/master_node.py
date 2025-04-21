@@ -218,7 +218,8 @@ class MasterNode(DTROS):
                         self.num_stage1_red_lines += 1
                         if self.last_bot_pos == 1:
                             self.stage1_left = True
-                            self.turn_left()
+                            self.nav_srv(1, 0.3, 0.28, 0.1)
+                            self.nav_srv(1, 0.3, 0.55, 0.60)
                         elif self.last_bot_pos == 2:
                             self.stage1_right = True
                             self.turn_right()
@@ -261,7 +262,8 @@ class MasterNode(DTROS):
                             self.sub.unregister()
                             self.num_stage1_red_lines += 1
                             if self.stage1_left:
-                                self.turn_right()
+                                self.nav_srv(1, 0.3, 0.28, 0.1)
+                                self.nav_srv(1, 0.75, 0.3, 0.42)
 
                             if self.stage1_right:
                                 self.turn_left()
