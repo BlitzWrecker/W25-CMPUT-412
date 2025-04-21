@@ -12,7 +12,7 @@ import os
 from std_msgs.msg import ColorRGBA
 from final.msg import LaneFollowCMD
 
-SAFE_DISTANCE = 0.6  # meters (safe following distance)
+SAFE_DISTANCE = 0.8  # meters (safe following distance)
 FOLLOW_DISTANCE = 0.8  # meters (desired following distance)
 
 
@@ -280,7 +280,7 @@ class DuckiebotFollowerNode(DTROS):
                 distance_error = distance - self.target_distance
 
                 # Calculate base speed based on distance
-                base_speed = self.calculate_base_speed(distance_error)
+                # base_speed = self.calculate_base_speed(distance_error)
 
                 # If we're too close, stop
                 if distance < SAFE_DISTANCE:
@@ -289,7 +289,7 @@ class DuckiebotFollowerNode(DTROS):
                     rospy.loginfo("Too close! Stopping.")
                 else:
                     # Calculate wheel speeds with lane following
-                    left_speed, right_speed = self.calculate_wheel_speeds(base_speed, lane_error)
+                    left_speed, right_speed = self.calculate_wheel_speeds(self.base_speed, lane_error)
 
                 cmd = WheelsCmdStamped()
                 cmd.vel_left = left_speed

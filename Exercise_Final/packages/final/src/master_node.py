@@ -126,7 +126,7 @@ class MasterNode(DTROS):
         self.nav_srv(1, 0.75, 0.3, 0.4555)
 
     def drive_straight(self, speed, duration):
-        self.nav_srv(1, speed, speed - 0.04, duration)
+        self.nav_srv(1, speed, speed, duration)
 
     def lane_follow(self, image):
         cmd = LaneFollowCMD()
@@ -416,6 +416,11 @@ class MasterNode(DTROS):
                     self.nav_srv(255, 0, 0, 0)
                 except rospy.service.ServiceException:
                     self.nav_srv = None
+
+                try:
+                    self.misc_ctrl("shutdown", 0)
+                except rospy.service.ServiceException:
+                    self.misc_ctrl = None
 
                 rospy.signal_shutdown("Reason")
                 rospy.loginfo("Entering stage 4.")

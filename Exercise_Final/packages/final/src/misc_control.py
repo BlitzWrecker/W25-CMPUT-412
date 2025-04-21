@@ -27,7 +27,7 @@ class MiscellaneousControl(DTROS):
         self.original_framerate = rospy.get_param(self._camera_framerate_param)
 
         # define other variables as needed
-        self.cmd = ["set_fr", "reset_fr", "set_led"]
+        self.cmd = ["set_fr", "reset_fr", "set_led", "shutdown"]
         self.colors = [ColorRGBA(r=1, g=0, b=0, a=0.5),  # red
                        ColorRGBA(r=0, g=0, b=1, a=0.5),  # blue
                        ColorRGBA(r=0, g=1, b=0, a=0.5),  # green
@@ -89,6 +89,10 @@ class MiscellaneousControl(DTROS):
 
             self.set_led(value)
             return MiscCtrlCMDResponse(True, f"Successfully set LED color to {self.color_str[value]}")
+        
+        elif cmd == self.cmd[3]:
+            s.shutdown("Shutting down miscellaneous control service.")
+            rospy.signal_shutdown("Shutting down miscellaneous control node.")
         
     def on_shutdown(self):
         self.reset_framerate()
