@@ -119,10 +119,10 @@ class MasterNode(DTROS):
 
     def turn_left(self):
         self.nav_srv(1, 0.3, 0.28, 0.1)
-        self.nav_srv(1, 0.3, 0.5, 0.60)
+        self.nav_srv(1, 0.3, 0.52, 0.60)
 
     def turn_right(self):
-        # self.nav_srv(1, 0.3, 0.28, 0.1)
+        self.nav_srv(1, 0.3, 0.28, 0.1)
         self.nav_srv(1, 0.75, 0.3, 0.4555)
 
     def drive_straight(self, speed, duration):
