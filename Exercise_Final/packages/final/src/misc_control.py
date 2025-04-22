@@ -31,7 +31,7 @@ class MiscellaneousControl(DTROS):
         self.colors = [ColorRGBA(r=1, g=0, b=0, a=0.5),  # red
                        ColorRGBA(r=0, g=0, b=1, a=0.5),  # blue
                        ColorRGBA(r=0, g=1, b=0, a=0.5),  # green
-                       ColorRGBA(r=1, g=1, b=1, a=0.5)]  # white
+                       ColorRGBA(r=0, g=0, b=0, a=1)]  # white
         self.color_str = ['red', 'blue', 'green', 'white']
 
         # Store the last set LED color

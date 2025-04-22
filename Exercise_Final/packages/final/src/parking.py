@@ -11,7 +11,7 @@ from duckietown_msgs.msg import WheelsCmdStamped, WheelEncoderStamped
 WHEEL_RADIUS = 0.0318  # meters (Duckiebot wheel radius)
 WHEEL_BASE = 0.05  # meters (distance between left and right wheels)
 TICKS_PER_ROTATION = 135  # Encoder ticks per full wheel rotation
-TURN_SPEED = 0.5  # Adjust speed for accuracy
+TURN_SPEED = 0.6  # Adjust speed for accuracy
 
 
 class ParkingNode(DTROS):
@@ -155,6 +155,8 @@ class ParkingNode(DTROS):
         """Execute the parking maneuver based on the stall number"""
 
         rospy.loginfo(f"Starting parking in stall {self.parking_stall}")
+
+        self.move_wheels(-0.2, 0.6, 0.25)  # Forward
 
         # Different turns based on parking stall
         if self.parking_stall == 1:

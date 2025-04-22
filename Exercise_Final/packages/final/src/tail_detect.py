@@ -102,6 +102,7 @@ class DuckiebotFollowerNode(DTROS):
         # LED publisher
         self.led_pub = rospy.Publisher(f"/{self._vehicle_name}/led_emitter_node/led_pattern", LEDPattern, queue_size=10)
 
+        self.prev_led = ""
         self.set_led("white")
 
         rospy.on_shutdown(self.on_shutdown)
@@ -178,6 +179,8 @@ class DuckiebotFollowerNode(DTROS):
                     x, y, w, h = cv2.boundingRect(contour)
 
                     if color_name == "yellow":
+                        if x + w // 2 > image.shape[1] // 2:
+                            continue
                         yellow_max_x = min(max(yellow_max_x, x + w / 2), image.shape[1] // 2)
                     elif color_name == "white":
                         white_min_x = max(min(white_min_x, x + w / 2), image.shape[1] // 2)
@@ -198,7 +201,7 @@ class DuckiebotFollowerNode(DTROS):
         self.lane_following_image_pub.publish(self.bridge.cv2_to_imgmsg(lane_detected_image, encoding="bgr8"))
 
         width = image.shape[1]
-        boost = min(50, width // 2 - yellow_x)
+        boost = min(25, width // 2 - yellow_x)
         yellow_x = yellow_x + boost
 
         v_mid_line = self.extrinsic_transform(image.shape[1] // 2, 0)
@@ -295,7 +298,9 @@ class DuckiebotFollowerNode(DTROS):
                 cmd.vel_left = left_speed
                 cmd.vel_right = right_speed
                 self.pub_cmd.publish(cmd)
-                self.set_led("green")
+                if self.prev_led != "green":
+                    self.prev_led = "green"
+                    self.set_led("green")
 
                 # Draw detection info on image
                 # cv2.putText(image, "MODE: FOLLOWING + LANE KEEPING", (10, 30),
@@ -314,7 +319,9 @@ class DuckiebotFollowerNode(DTROS):
                     cmd.vel_left = left_speed
                     cmd.vel_right = right_speed
                     self.pub_cmd.publish(cmd)
-                    self.set_led("white")
+                    if self.prev_led != "white":
+                        self.prev_led = "white"
+                        self.set_led("white")
 
                 #     cv2.putText(image, "MODE: LANE FOLLOWING", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255),
                 #                 2)

@@ -82,6 +82,10 @@ class NavigationNode(DTROS):
 
         # Compute required encoder ticks for 90-degree turn
         ticks_needed = round((WHEEL_BASE / (8 * WHEEL_RADIUS)) * TICKS_PER_ROTATION) + 11
+        if direction == -1:
+            ticks_needed = ticks_needed * 1.3
+        else:
+            ticks_needed = ticks_needed * 0.9
         rospy.loginfo(f"Ticks needed for 90-degree turn: {ticks_needed}")
 
         # Command wheels to rotate in opposite directions

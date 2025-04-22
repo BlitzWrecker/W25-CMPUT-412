@@ -119,11 +119,11 @@ class MasterNode(DTROS):
 
     def turn_left(self):
         self.nav_srv(1, 0.3, 0.28, 0.1)
-        self.nav_srv(1, 0.3, 0.52, 0.60)
+        self.nav_srv(1, 0.3, 0.55, 0.60)
 
     def turn_right(self):
         self.nav_srv(1, 0.3, 0.28, 0.1)
-        self.nav_srv(1, 0.75, 0.3, 0.4555)
+        self.nav_srv(1, 0.75, 0.3, 0.42)
 
     def drive_straight(self, speed, duration):
         self.nav_srv(1, speed, speed, duration)
@@ -152,36 +152,35 @@ class MasterNode(DTROS):
 
         if self.stage == 0:
             self.sub.unregister()
-            self.stage += 1
-            # self.stage = 3
+            # self.stage += 1
+            self.stage = 3
 
             subprocess.Popen(['rosrun', 'final', 'navigation.py'])
             rospy.wait_for_service("nav_srv", timeout=30)
             self.nav_srv = rospy.ServiceProxy("nav_srv", NavigateCMD)
 
-            subprocess.Popen(['rosrun', 'final', 'soft_bot_detect.py'])
+            # subprocess.Popen(['rosrun', 'final', 'soft_bot_detect.py'])
+            # rospy.wait_for_service("bot_detect_srv", timeout=30)
+            # self.bot_detect_srv = rospy.ServiceProxy("bot_detect_srv", ImageDetect)
+            #
+            # subprocess.Popen(['rosrun', 'final', 'tail_detect.py'])
+            # self.lane_follow_pub = rospy.Publisher(f"/{self._vehicle_name}/tailing_input", LaneFollowCMD, queue_size=1)
+            # time.sleep(5)
+
+            subprocess.Popen(['rosrun', 'final', 'bot_detect.py'])
             rospy.wait_for_service("bot_detect_srv", timeout=30)
             self.bot_detect_srv = rospy.ServiceProxy("bot_detect_srv", ImageDetect)
 
-            subprocess.Popen(['rosrun', 'final', 'tail_detect.py'])
-            self.lane_follow_pub = rospy.Publisher(f"/{self._vehicle_name}/tailing_input", LaneFollowCMD, queue_size=1)
+            subprocess.Popen(['rosrun', 'final', 'crosswalk.py'])
+            rospy.wait_for_service("crosswalk_detect_srv", timeout=30)
+            self.crosswalk_srv = rospy.ServiceProxy("crosswalk_detect_srv", ImageDetect)
+
+            self.misc_ctrl("set_led", 3)
+
+            subprocess.Popen(['rosrun', 'final', 'lane_follow.py'])
+            self.lane_follow_pub = rospy.Publisher(f"/{self._vehicle_name}/lane_follow_input", LaneFollowCMD,
+                                                    queue_size=1)
             time.sleep(5)
-
-
-            # subprocess.Popen(['rosrun', 'final', 'bot_detect.py'])
-            # rospy.wait_for_service("bot_detect_srv", timeout=30)
-            # self.bot_detect_srv = rospy.ServiceProxy("bot_detect_srv", ImageDetect)
-
-            # subprocess.Popen(['rosrun', 'final', 'crosswalk.py'])
-            # rospy.wait_for_service("crosswalk_detect_srv", timeout=30)
-            # self.crosswalk_srv = rospy.ServiceProxy("crosswalk_detect_srv", ImageDetect)
-
-            # self.misc_ctrl("set_led", 3)
-
-            # subprocess.Popen(['rosrun', 'final', 'lane_follow.py'])
-            # self.lane_follow_pub = rospy.Publisher(f"/{self._vehicle_name}/lane_follow_input", LaneFollowCMD,
-            #                                         queue_size=1)
-            # time.sleep(5)
 
             rospy.loginfo("Entering stage 1.")
             self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback)
@@ -242,7 +241,12 @@ class MasterNode(DTROS):
                             self.sub.unregister()
                             self.num_stage1_red_lines += 1
                             rospy.loginfo("Driving straight at the intersection")
-                            self.drive_straight(0.3, 0.8)
+
+                            if self.stage1_left:
+                                self.nav_srv(1, 0.3, 0.35, 0.8)
+                            else:
+                                self.nav_srv(1, 0.3, 0.28, 0.8)
+
                             self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
 
                             self.last_red_line_time = current_time
@@ -263,10 +267,11 @@ class MasterNode(DTROS):
                             self.num_stage1_red_lines += 1
                             if self.stage1_left:
                                 self.nav_srv(1, 0.3, 0.28, 0.1)
-                                self.nav_srv(1, 0.75, 0.3, 0.42)
+                                self.nav_srv(1, 0.75, 0.3, 0.40)
 
                             if self.stage1_right:
-                                self.turn_left()
+                                self.nav_srv(1, 0.3, 0.28, 0.1)
+                                self.nav_srv(1, 0.3, 0.60, 0.60)
 
                             self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
                             self.last_red_line_time = current_time
@@ -379,12 +384,12 @@ class MasterNode(DTROS):
 
                     self.nav_srv(0, 0, 0, 2)
                     self.nav_srv(2, -1, 0, 0)
-                    self.nav_srv(1, 0.5, 0.49, 0.15)
+                    self.nav_srv(1, 0.3, 0.29, 0.25)
                     self.nav_srv(2, 1, 0, 0)
-                    self.nav_srv(1, 0.5, 0.48, 0.45)
-                    self.nav_srv(2, 1, 0, 0)
-                    self.nav_srv(1, 0.5, 0.49, 0.15)
-                    self.nav_srv(2, -1, 0, 0)
+                    self.nav_srv(1, 0.3, 0.29, 0.45)
+                    # self.nav_srv(2, 1, 0, 0)
+                    # self.nav_srv(1, 0.3, 0.29, 0.2)
+                    # self.nav_srv(2, -1, 0, 0)
 
                     self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
                 else:
@@ -395,6 +400,8 @@ class MasterNode(DTROS):
                 self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
                 self.stage3_event += crosswalk_res
                 rospy.loginfo(f"{crosswalk_res}")
+            else:
+                self.lane_follow(preprocessed_image)
 
             height = image.shape[0]
             cropped_image_redline = image[height * 2 // 3:, :]
