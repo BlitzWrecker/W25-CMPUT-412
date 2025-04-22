@@ -9,7 +9,7 @@ from duckietown.dtros import DTROS, NodeType
 from sensor_msgs.msg import Image
 from duckietown_msgs.msg import WheelsCmdStamped
 from cv_bridge import CvBridge
-from ex4.msg import NavigateCMD
+from final.msg import LaneFollowCMD
 import os
 
 
@@ -32,7 +32,7 @@ class LaneFollowingNode(DTROS):
         self.controller_type = 'PID'  # Change as needed ('P', 'PD', 'PID')
 
         # PID Gains
-        self.kp = 1.0  # Proportional gain
+        self.kp = 1.75  # Proportional gain
         self.kd = 0.1  # Derivative gain
         self.ki = 0.01  # Integral gain
 
@@ -45,20 +45,20 @@ class LaneFollowingNode(DTROS):
 
         # Movement parameters
         self.base_speed = 0.3  # Base wheel speed
-        self.max_speed = 0.5 # Max wheel speed
+        self.max_speed = 0.6 # Max wheel speed
 
 
         # Initialize bridge and publishers/subscribers
         self.bridge = CvBridge()
         self._vehicle_name = os.environ['VEHICLE_NAME']
         self.pub_cmd = rospy.Publisher(f"/{self._vehicle_name}/wheels_driver_node/wheels_cmd", WheelsCmdStamped, queue_size=1)
-        self.image_sub = rospy.Subscriber(f"/{self._vehicle_name}/crosswalk_detection_res", NavigateCMD, self.image_callback)
+        self.image_sub = rospy.Subscriber(f"/{self._vehicle_name}/lane_follow_input", LaneFollowCMD, self.image_callback)
         self.image_pub = rospy.Publisher(f"/{self._vehicle_name}/lane_following_processed_image", Image, queue_size=10)
 
-        self.lower_yellow = np.array([20, 100, 100])
+        self.lower_yellow = np.array([20, 85, 100])
         self.upper_yellow = np.array([30, 255, 255])
         self.lower_white = np.array([0, 0, 150])
-        self.upper_white = np.array([180, 60, 255])
+        self.upper_white = np.array([180, 40, 255])
 
     def detect_lane_color(self, image):
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -84,7 +84,7 @@ class LaneFollowingNode(DTROS):
 
             masked_color = cv2.bitwise_and(image, image, mask=mask)
             gray = cv2.cvtColor(masked_color, cv2.COLOR_BGR2GRAY)
-            _, thresh = cv2.threshold(gray, 50, 255, cv2.THRESH_BINARY)
+            _, thresh = cv2.threshold(gray, 30, 255, cv2.THRESH_BINARY)
             contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
             for contour in contours:
@@ -124,6 +124,10 @@ class LaneFollowingNode(DTROS):
         lane_detected_image, yellow_x, white_x = self.detect_lane(image, masks)
 
         self.image_pub.publish(self.bridge.cv2_to_imgmsg(lane_detected_image, encoding="bgr8"))
+
+        width = image.shape[1]
+        boost = min(25, width // 2 - yellow_x)
+        yellow_x = yellow_x + boost
 
         v_mid_line = self.extrinsic_transform(image.shape[1] // 2, 0) 
         yellow_line = self.extrinsic_transform(yellow_x, 0)
@@ -195,13 +199,15 @@ class LaneFollowingNode(DTROS):
 
     def image_callback(self, msg):
         """Processes camera image to detect lane and compute error."""
-        state = msg.state
+        shutdown, state, image = msg.shutdown, msg.state, msg.image
+
+        if shutdown:
+            rospy.signal_shutdown("Shutting down lane following node.")
 
         if state > 1:
             self.stop()
             return
 
-        image = msg.image
         image = self.bridge.imgmsg_to_cv2(image, desired_encoding="bgr8")
 
         # Crop the image to only include the lower half

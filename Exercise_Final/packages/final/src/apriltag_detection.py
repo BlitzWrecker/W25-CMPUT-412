@@ -5,12 +5,11 @@ import cv2
 import os
 import numpy as np
 from duckietown.dtros import DTROS, NodeType
-from duckietown_msgs.msg import BoolStamped
-from sensor_msgs.msg import CompressedImage, CameraInfo, Image
+from sensor_msgs.msg import Image, CameraInfo
 from std_msgs.msg import Int32
 from cv_bridge import CvBridge
 from dt_apriltags import Detector
-from ex4.srv import MiscCtrlCMD, MiscCtrlCMDResponse
+from final.srv import ImageDetect, ImageDetectResponse
 
 
 class ApriltagNode(DTROS):
@@ -29,28 +28,17 @@ class ApriltagNode(DTROS):
         self.led_color = "white"  # Default LED color
 
         self._vehicle_name = os.environ['VEHICLE_NAME']
-        self._camera_topic = f"/{self._vehicle_name}/camera_node/image/compressed"
-
-        # Subscribe to camera feed
-        self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.camera_callback)
 
         self.camera_info_sub = rospy.Subscriber(
             f"/{self._vehicle_name}/camera_node/camera_info", CameraInfo, self.camera_info_callback, queue_size=1
         )
 
         # Publish augmented image
-        self.augmented_img_pub = rospy.Publisher(f"/{self._vehicle_name}/processed_image", Image, queue_size=10)
+        self.augmented_img_pub = rospy.Publisher(f"/{self._vehicle_name}/apriltag_processed_image", Image, queue_size=10)
 
         self.tag_id_pub = rospy.Publisher(f"/{self._vehicle_name}/detected_tag_id", Int32, queue_size=1)
 
-
-        # Set the new camera framerate to 3
-        self.new_framerate = 3
-        rospy.wait_for_service("misc_ctrl_srv", timeout=1)
-        self.misc_ctrl_srv = rospy.ServiceProxy("misc_ctrl_srv", MiscCtrlCMD)
-        self.misc_ctrl_srv("set_fr", self.new_framerate)
-
-        self.tag_mapping = {21: 0, 133: 1, 94: 2, -1: 3}
+        self.tag_mapping = {48: 0, 50: 1}
         self.prev_tag = None
 
         rospy.loginfo(f"[{node_name}] Node initialized.")
@@ -63,16 +51,13 @@ class ApriltagNode(DTROS):
 
     def camera_callback(self, msg):
         """Callback for processing incoming camera images."""
-        try:
-            # Convert compressed image to OpenCV format
-            cv_image = self.bridge.compressed_imgmsg_to_cv2(msg)
-        except Exception as e:
-            rospy.logerr(f"Error converting image: {e}")
-            return
+        shutdown, image = msg.shutdown, msg.image
+        if shutdown:
+            s.shutdown("Shutting down Apriltag detection service.")
+            rospy.signal_shutdown('Shutting down Apriltag detection node.')
+            return ImageDetectResponse(255)
 
-        # Undistort the image
-        if self.camera_matrix is not None and self.distortion_coeffs is not None:
-            cv_image = cv2.undistort(cv_image, self.camera_matrix, self.distortion_coeffs)
+        cv_image = self.bridge.imgmsg_to_cv2(image)
 
         # Preprocess the image
         processed_image = self.process_image(cv_image)
@@ -89,7 +74,6 @@ class ApriltagNode(DTROS):
 
             if tag_id != self.prev_tag:
                 try:
-                    self.misc_ctrl_srv("set_led", self.tag_mapping[tag_id])
                     self.prev_tag = tag_id
                     self.tag_id_pub.publish(tag_id)
                     rospy.loginfo("Published tag_id:")
@@ -99,14 +83,13 @@ class ApriltagNode(DTROS):
                     rospy.loginfo(tag_id)
             # Draw bounding boxes and tag IDs for the closest tag only
 
-        elif not self.prev_tag:
-            self.misc_ctrl_srv("set_led", self.tag_mapping[-1])
-        
         augmented_image = self.publish_augmented_img(cv_image, closest_tag)
         try:
             self.augmented_img_pub.publish(self.bridge.cv2_to_imgmsg(augmented_image, encoding="bgr8"))
         except Exception as e:
             rospy.logerr(f"Error publishing augmented image: {e}")
+
+        return ImageDetectResponse(closest_tag.tag_id if closest_tag is not None else 255)
 
     def process_image(self, image):
         """Preprocess the image for AprilTag detection."""
@@ -176,4 +159,5 @@ class ApriltagNode(DTROS):
 if __name__ == '__main__':
     # Create the node
     node = ApriltagNode(node_name='apriltag_detector_node')
+    s = rospy.Service('apriltag_detection_srv', ImageDetect, node.camera_callback)
     rospy.spin()

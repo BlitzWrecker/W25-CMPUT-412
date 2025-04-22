@@ -4,7 +4,7 @@
 import os
 import rospy
 from duckietown.dtros import DTROS, NodeType
-from ex4.srv import MiscCtrlCMD, MiscCtrlCMDResponse
+from final.srv import MiscCtrlCMD, MiscCtrlCMDResponse
 from duckietown_msgs.msg import LEDPattern
 from std_msgs.msg import ColorRGBA
 
@@ -27,15 +27,15 @@ class MiscellaneousControl(DTROS):
         self.original_framerate = rospy.get_param(self._camera_framerate_param)
 
         # define other variables as needed
-        self.cmd = ["set_fr", "reset_fr", "set_led"]
+        self.cmd = ["set_fr", "reset_fr", "set_led", "shutdown"]
         self.colors = [ColorRGBA(r=1, g=0, b=0, a=0.5),  # red
                        ColorRGBA(r=0, g=0, b=1, a=0.5),  # blue
                        ColorRGBA(r=0, g=1, b=0, a=0.5),  # green
-                       ColorRGBA(r=1, g=1, b=1, a=0.5)]  # white
+                       ColorRGBA(r=0, g=0, b=0, a=1)]  # white
         self.color_str = ['red', 'blue', 'green', 'white']
 
         # Store the last set LED color
-        self.last_led_color = "white"
+        self.last_led_color = ""
 
         # Set shutdown callback to restore framerate to the original value
         rospy.on_shutdown(self.on_shutdown)
@@ -58,7 +58,11 @@ class MiscellaneousControl(DTROS):
             self.last_led_color = self.color_str[idx]  # Update the last set LED color
             rospy.loginfo(f"LED color changed to {self.color_str[idx]}")
         elif self.color_str[idx] == "white" and self.last_led_color != "white": # if the last color is not None, then do not update to white
-            pass
+            pattern = LEDPattern()
+            pattern.rgb_vals = [self.colors[idx]] * 5
+            self.led_pub.publish(pattern)
+            self.last_led_color = self.color_str[idx]  # Update the last set LED color
+            rospy.loginfo(f"LED color changed to {self.color_str[idx]}")
         elif self.last_led_color != self.color_str[idx]:
             pattern = LEDPattern()
             pattern.rgb_vals = [self.colors[idx]] * 5
@@ -89,6 +93,10 @@ class MiscellaneousControl(DTROS):
 
             self.set_led(value)
             return MiscCtrlCMDResponse(True, f"Successfully set LED color to {self.color_str[value]}")
+        
+        elif cmd == self.cmd[3]:
+            s.shutdown("Shutting down miscellaneous control service.")
+            rospy.signal_shutdown("Shutting down miscellaneous control node.")
         
     def on_shutdown(self):
         self.reset_framerate()

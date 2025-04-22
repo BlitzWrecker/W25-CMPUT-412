@@ -10,10 +10,10 @@ import time
 import math
 import numpy as np
 from duckietown.dtros import DTROS, NodeType
-from sensor_msgs.msg import CompressedImage, Image
+from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
-from ex4.srv import MiscCtrlCMD
-from ex4.msg import NavigateCMD
+from final.srv import MiscCtrlCMD, ImageDetect, ImageDetectResponse, NavigateCMD
+from final.msg import LaneFollowCMD
 
 class CrossWalkNode(DTROS):
 
@@ -23,21 +23,11 @@ class CrossWalkNode(DTROS):
         # add your code here
         self._vehicle_name = os.environ['VEHICLE_NAME']
 
-        rospy.wait_for_service("misc_ctrl_srv", timeout=1)
-        self.misc_ctrl = rospy.ServiceProxy("misc_ctrl_srv", MiscCtrlCMD)
-        self.misc_ctrl("set_fr", 3)
-
         # define other variables as needed
         
         # Camera calibration parameters extracted from the file manager on the dashboard
         # Hard coding is a bad practice; We will have to hard code these parameters again if we switch to another Duckiebot
         # We found a ROS topic that gives us the intrinsic parameters, but not the extrinsict parameters (i.e. the homography matrix)
-        self.camera_matrix = np.array([[729.3017308196419, 0.0, 296.9297699654982],
-                                       [0.0, 714.8576567892494, 194.88265037301576],
-                                       [0.0, 0.0, 1.0]])
-        self.dist_coeffs = np.array(
-            [[-1.526832375685591], [2.217300696985744], [-0.00035517449407590306], [-0.013740460640726298], [0.0]])
-
         self.homography = np.array([
             -4.3606292146280124e-05,
             0.0003805216196272236,
@@ -49,47 +39,26 @@ class CrossWalkNode(DTROS):
             0.010136558604291714,
             -1.0992556526691932,
         ]).reshape(3, 3)
-
-        # Precompute undistortion maps
-        h, w = 480, 640  # Adjust to your image size
-        self.new_camera_matrix, self.roi = cv2.getOptimalNewCameraMatrix(
-            self.camera_matrix, self.dist_coeffs, (w, h), 1, (w, h))
-        self.map1, self.map2 = cv2.initUndistortRectifyMap(
-            self.camera_matrix, self.dist_coeffs, None, self.new_camera_matrix, (w, h), cv2.CV_16SC2)
     
         # Color detection parameters in HSV format
-        self.lower_blue = np.array([100, 150, 50])
+        self.lower_blue = np.array([100, 80, 50])
         self.upper_blue = np.array([140, 255, 255])
         self.lower_orange = np.array([15, 100, 100])
         self.upper_orange = np.array([20, 255, 255])
-
-        # Remember the last detected color. We only have to execute a different navigation control when there is a color
-        # change
-        self.last_color = None
 
         # Set a distance threshhold for detecting lines so we don't detect lines that are too far away
         self.dist_thresh = 5
         
         self.img_pub = rospy.Publisher(f"/{self._vehicle_name}/crosswalk_processed_image", Image, queue_size=10)
-        self.res_pub = rospy.Publisher(f"/{self._vehicle_name}/crosswalk_detection_res", NavigateCMD,queue_size=1)
+        self.res_pub = rospy.Publisher(f"/{self._vehicle_name}/lane_follow_input", LaneFollowCMD,queue_size=1)
 
-        # Initialize bridge and subscribe to camera feed
-        self._camera_topic = f"/{self._vehicle_name}/camera_node/image/compressed"
+        rospy.wait_for_service("nav_srv", timeout=5)
+        self.nav_srv = rospy.ServiceProxy("nav_srv", NavigateCMD)
+
+        # Initialize bridge
         self._bridge = CvBridge()
-        self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
 
         self.prev_state = None
-
-        # Used to wait for camera initialization
-        self.start_time = rospy.get_time()
-
-    def undistort_image(self, image):
-        return cv2.remap(image, self.map1, self.map2, cv2.INTER_LINEAR)
-    
-    def preprocess_image(self, image):
-        # Downscale the image
-        image = cv2.resize(image, (320, 240))  # Adjust resolution as needed
-        return cv2.GaussianBlur(image, (5, 5), 0)
     
     def detect_lane_color(self, image):
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -135,7 +104,7 @@ class CrossWalkNode(DTROS):
                     if (dist <= self.dist_thresh):
                         contour_dists[color_name].append((dist, x, y, w, h))
 
-            contour_dists[color_name] = sorted(contour_dists[color_name], key=lambda x: x[0])
+            contour_dists[color_name] = sorted(contour_dists[color_name], key=lambda elem: elem[0])
 
         if "blue" in contour_dists.keys():
             if "orange" in contour_dists.keys() and len(contour_dists["blue"]) >= 1 and len(contour_dists["orange"]) > 0:
@@ -144,7 +113,7 @@ class CrossWalkNode(DTROS):
                         cv2.rectangle(image, (x, y), (x + w, y + h), colors[i], 2)
                         cv2.putText(image, f"Dist: {dist*30:.2f} cm", (x, y + h + 10), cv2.FONT_HERSHEY_PLAIN, 1, colors[i])
  
-                rospy.loginfo("Deteced crosswalk with ducks.")
+                rospy.loginfo("Detected crosswalk with ducks.")
                 return image, 3
 
             if len(contour_dists["blue"]) >= 2:
@@ -159,23 +128,18 @@ class CrossWalkNode(DTROS):
         return image, 0
 
     def image_callback(self, msg):
-        current_time = rospy.get_time()
-        if current_time - self.start_time <= 10:
-            rospy.loginfo("Waiting for camera initialization")
-            return
+        shutdown, image = msg.shutdown, msg.image
+        if shutdown:
+            s.shutdown("Shutting down crosswalk detection service.")
+            rospy.signal_shutdown('Shutting down crosswalk detection node.')
+            return ImageDetectResponse(255)
 
         # Convert compressed image to CV2
-        image = self._bridge.compressed_imgmsg_to_cv2(msg)
-    
-        # Undistort image
-        undistorted_image = self.undistort_image(image)
-    
-        # Preprocess image
-        preprocessed_image = self.preprocess_image(undistorted_image)
-    
+        preprocessed_image = self._bridge.imgmsg_to_cv2(image, desired_encoding="bgr8")
+
         # Crop the bottom of the image before detecting crosswalks because the bottom of the image is warped even after
         # undistortion. Another way to achieve the same purpose is to apply a minimum distance threshold, i.e. the blue
-        # lines have to be at least x units away. 
+        # lines have to be at least x units away.
         height, _ = preprocessed_image.shape[:2]
         cropped_image = preprocessed_image[:math.ceil(height * 0.7), :]
 
@@ -186,14 +150,7 @@ class CrossWalkNode(DTROS):
         # Publish processed image (optional)
         self.img_pub.publish(self._bridge.cv2_to_imgmsg(lane_detected_image, encoding="bgr8"))
 
-        navigate_message = NavigateCMD()
-
-        if self.prev_state == 1:
-            if detected_crosswalk >= 2:
-                navigate_message.image = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding='bgr8')
-                navigate_message.state = 1
-                self.res_pub.publish(navigate_message)
-                return
+        lane_follow_message = LaneFollowCMD()
 
         # We have come across an empty crosswalk. Either (1) there were ducks on this crosswalk before, but now they
         # have crossed, or (2) there were no ducks on this crosswalk when we first approached it.
@@ -201,29 +158,31 @@ class CrossWalkNode(DTROS):
             # Case (2): we have to stop for one second before moving on
             if self.prev_state is None or (self.prev_state is not None and self.prev_state < 1):
                 # Signal the lane following node to stop the vehicle
-                navigate_message.image = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding='bgr8')
-                navigate_message.state = detected_crosswalk
-                self.res_pub.publish(navigate_message)
+                lane_follow_message.shutdown = False
+                lane_follow_message.image = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding='bgr8')
+                lane_follow_message.state = detected_crosswalk
+                self.res_pub.publish(lane_follow_message)
 
                 # We must stop the vehicle for at least one second. We implement this using the Python built-in function
-                # time.sleep(). During this time the camera will continue to publish captured images, but we cannot
-                # process them. To prevent this pile up of unprocessed images, we first unregister from the camera topic.
-                self.sub.unregister()
+                # time.sleep().
                 time.sleep(1)
 
-                # We must re-establish the camera subscriber before the next iteration
-                self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback, queue_size=1)
- 
-            self.prev_state = 1
-            return
+            self.nav_srv(1, 0.3, 0.28, 0.15)
 
-        navigate_message.image = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding='bgr8')
-        navigate_message.state = detected_crosswalk
-        self.res_pub.publish(navigate_message)
+            self.prev_state = 0
+            return ImageDetectResponse(1)
+
+        lane_follow_message.shutdown = False
+        lane_follow_message.image = self._bridge.cv2_to_imgmsg(preprocessed_image.copy(), encoding='bgr8')
+        lane_follow_message.state = detected_crosswalk
+        self.res_pub.publish(lane_follow_message)
         self.prev_state = detected_crosswalk
+
+        return ImageDetectResponse(0)
 
 
 if __name__ == '__main__':
     # create the node
-    node = CrossWalkNode(node_name='crosswalk')
+    node = CrossWalkNode(node_name='crosswalk_detect')
+    s = rospy.Service("crosswalk_detect_srv", ImageDetect, node.image_callback)
     rospy.spin()
