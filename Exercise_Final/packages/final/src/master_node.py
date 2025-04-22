@@ -152,35 +152,35 @@ class MasterNode(DTROS):
 
         if self.stage == 0:
             self.sub.unregister()
-            # self.stage += 1
-            self.stage = 3
+            self.stage += 1
+            # self.stage = 3
 
             subprocess.Popen(['rosrun', 'final', 'navigation.py'])
             rospy.wait_for_service("nav_srv", timeout=30)
             self.nav_srv = rospy.ServiceProxy("nav_srv", NavigateCMD)
 
-            # subprocess.Popen(['rosrun', 'final', 'soft_bot_detect.py'])
-            # rospy.wait_for_service("bot_detect_srv", timeout=30)
-            # self.bot_detect_srv = rospy.ServiceProxy("bot_detect_srv", ImageDetect)
-            #
-            # subprocess.Popen(['rosrun', 'final', 'tail_detect.py'])
-            # self.lane_follow_pub = rospy.Publisher(f"/{self._vehicle_name}/tailing_input", LaneFollowCMD, queue_size=1)
-            # time.sleep(5)
-
-            subprocess.Popen(['rosrun', 'final', 'bot_detect.py'])
+            subprocess.Popen(['rosrun', 'final', 'soft_bot_detect.py'])
             rospy.wait_for_service("bot_detect_srv", timeout=30)
             self.bot_detect_srv = rospy.ServiceProxy("bot_detect_srv", ImageDetect)
 
-            subprocess.Popen(['rosrun', 'final', 'crosswalk.py'])
-            rospy.wait_for_service("crosswalk_detect_srv", timeout=30)
-            self.crosswalk_srv = rospy.ServiceProxy("crosswalk_detect_srv", ImageDetect)
-
-            self.misc_ctrl("set_led", 3)
-
-            subprocess.Popen(['rosrun', 'final', 'lane_follow.py'])
-            self.lane_follow_pub = rospy.Publisher(f"/{self._vehicle_name}/lane_follow_input", LaneFollowCMD,
-                                                    queue_size=1)
+            subprocess.Popen(['rosrun', 'final', 'tail_detect.py'])
+            self.lane_follow_pub = rospy.Publisher(f"/{self._vehicle_name}/tailing_input", LaneFollowCMD, queue_size=1)
             time.sleep(5)
+
+            # subprocess.Popen(['rosrun', 'final', 'bot_detect.py'])
+            # rospy.wait_for_service("bot_detect_srv", timeout=30)
+            # self.bot_detect_srv = rospy.ServiceProxy("bot_detect_srv", ImageDetect)
+            #
+            # subprocess.Popen(['rosrun', 'final', 'crosswalk.py'])
+            # rospy.wait_for_service("crosswalk_detect_srv", timeout=30)
+            # self.crosswalk_srv = rospy.ServiceProxy("crosswalk_detect_srv", ImageDetect)
+            #
+            # self.misc_ctrl("set_led", 3)
+            #
+            # subprocess.Popen(['rosrun', 'final', 'lane_follow.py'])
+            # self.lane_follow_pub = rospy.Publisher(f"/{self._vehicle_name}/lane_follow_input", LaneFollowCMD,
+            #                                         queue_size=1)
+            # time.sleep(5)
 
             rospy.loginfo("Entering stage 1.")
             self.sub = rospy.Subscriber(self._camera_topic, CompressedImage, self.image_callback)

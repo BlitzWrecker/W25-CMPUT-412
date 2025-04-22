@@ -11,7 +11,7 @@ from duckietown_msgs.msg import WheelsCmdStamped, WheelEncoderStamped
 WHEEL_RADIUS = 0.0318  # meters (Duckiebot wheel radius)
 WHEEL_BASE = 0.05  # meters (distance between left and right wheels)
 TICKS_PER_ROTATION = 135  # Encoder ticks per full wheel rotation
-TURN_SPEED = 0.6  # Adjust speed for accuracy
+TURN_SPEED = 0.5  # Adjust speed for accuracy
 
 
 class ParkingNode(DTROS):
@@ -162,19 +162,19 @@ class ParkingNode(DTROS):
         if self.parking_stall == 1:
             self.move_wheels(0.5, 0.5, 1)  # Forward
             self.turn_90_degrees(-1)  # Left turn
-            self.move_wheels(-0.5, -0.5, 1)  # Reverse
+            self.move_wheels(-0.5, -0.5, 1.5)  # Reverse
         elif self.parking_stall == 2:
             self.move_wheels(0.5, 0.5, 2)  # Forward
             self.turn_90_degrees(-1)  # Left turn
-            self.move_wheels(-0.5, -0.5, 1)  # Reverse
+            self.move_wheels(-0.5, -0.5, 1.5)  # Reverse
         elif self.parking_stall == 3:
             self.move_wheels(0.5, 0.5, 1)  # Forward
             self.turn_90_degrees(1)  # Right turn
-            self.move_wheels(-0.5, -0.5, 2.5)  # Reverse
+            self.move_wheels(-0.5, -0.5, 2.3)  # Reverse
         elif self.parking_stall == 4:
             self.move_wheels(0.5, 0.5, 2)  # Forward
             self.turn_90_degrees(1)  # Right turn
-            self.move_wheels(-0.5, -0.5, 2.5)  # Reverse
+            self.move_wheels(-0.5, -0.5, 2.3)  # Reverse
         else:
             rospy.logerr(f"Invalid parking stall number: {self.parking_stall}")
             

@@ -41,7 +41,7 @@ class CrossWalkNode(DTROS):
         ]).reshape(3, 3)
     
         # Color detection parameters in HSV format
-        self.lower_blue = np.array([100, 100, 50])
+        self.lower_blue = np.array([100, 80, 50])
         self.upper_blue = np.array([140, 255, 255])
         self.lower_orange = np.array([15, 100, 100])
         self.upper_orange = np.array([20, 255, 255])
@@ -167,7 +167,7 @@ class CrossWalkNode(DTROS):
                 # time.sleep().
                 time.sleep(1)
 
-            self.nav_srv(1, 0.3, 0.29, 0.2)
+            self.nav_srv(1, 0.3, 0.28, 0.15)
 
             self.prev_state = 0
             return ImageDetectResponse(1)

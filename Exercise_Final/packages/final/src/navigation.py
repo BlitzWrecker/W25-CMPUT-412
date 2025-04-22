@@ -85,7 +85,7 @@ class NavigationNode(DTROS):
         if direction == -1:
             ticks_needed = ticks_needed * 1.3
         else:
-            ticks_needed = ticks_needed * 0.9
+            ticks_needed = ticks_needed * 1.1
         rospy.loginfo(f"Ticks needed for 90-degree turn: {ticks_needed}")
 
         # Command wheels to rotate in opposite directions
